@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration monitorInterval="30" packages="org.authlab.logging">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <Filters>
+                <MarkerFilter marker="AUDIT" onMatch="DENY" onMismatch="NEUTRAL"/>
+                <MarkerFilter marker="HAR" onMatch="DENY" onMismatch="NEUTRAL"/>
+            </Filters>
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} %MDC - %msg%n"/>
+        </Console>
+
+        <Console name="Audit" target="SYSTEM_OUT">
+            <MarkerFilter marker="AUDIT" onMatch="ACCEPT" onMismatch="DENY"/>
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} AUDIT %MDC - %msg%n"/>
+        </Console>
+
+        <Http name="HAR" url="http://localhost:8180/api/sources/server/events">
+            <MarkerFilter marker="HAR" onMatch="ACCEPT" onMismatch="DENY"/>
+            <JsonMapLayout />
+        </Http>
+    </Appenders>
+
+    <Loggers>
+        <Logger name="SSL" level="TRACE"/>
+        <Logger name="org.authlab" level="DEBUG"/>
+        <Logger name="org.authlab.crypto" level="TRACE"/>
+        <!--<Logger name="org.authlab.http" level="TRACE"/>-->
+        <!--<Logger name="org.authlab.http.RawBody" level="TRACE"/>-->
+
+        <Root level="INFO">
+            <AppenderRef ref="Console"/>
+            <!--<AppenderRef ref="Audit"/>-->
+            <!--<AppenderRef ref="HAR"/>-->
+        </Root>
+    </Loggers>
+</Configuration>

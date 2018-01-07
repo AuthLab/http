@@ -1,0 +1,57 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+group 'http'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'groovy'
+apply plugin: 'java'
+apply plugin: 'kotlin'
+apply plugin: 'application'
+
+mainClassName = "org.authlab.App"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile project(':core')
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    compile "org.codehaus.groovy:groovy-all:$groovy_version"
+    compile "org.apache.logging.log4j:log4j-core:2.10.0"
+    compile "org.apache.logging.log4j:log4j-slf4j-impl:2.10.0"
+
+    testCompile "junit:junit:$junit_version"
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "$java_version"
+}
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "$java_version"
+}
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'Proxy',
+                'Implementation-Version': version,
+                'Main-Class': 'org.authlab.App',
+                'Class-Path': configurations.compile.collect { it.getName() }.join(' ')
+    }
+}
+
+distributions {
+    main {
+        contents {
+            from jar, configurations.runtime
+            exclude 'logs'
+        }
+    }
+}
