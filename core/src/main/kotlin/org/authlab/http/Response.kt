@@ -1,5 +1,11 @@
 package org.authlab.http
 
+import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.EmptyBody
+import org.authlab.http.bodies.JsonBody
+import org.authlab.http.bodies.RawBody
+import org.authlab.http.bodies.StringBody
+import org.authlab.http.bodies.emptyBody
 import org.authlab.util.loggerFor
 import org.authlab.io.readLine
 import java.io.InputStream

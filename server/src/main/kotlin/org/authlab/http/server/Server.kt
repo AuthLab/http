@@ -1,85 +1,82 @@
 package org.authlab.http.server
 
-import org.authlab.util.loggerFor
 import org.authlab.http.Request
 import org.authlab.http.Response
 import org.authlab.http.ResponseLine
+import org.authlab.util.loggerFor
 import java.io.Closeable
-import java.net.InetAddress
-import java.net.ServerSocket
+import java.net.Socket
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
-import java.util.regex.Pattern
-import javax.net.ssl.SSLServerSocketFactory
 
-class Server(inetAddress: InetAddress, port: Int, backlog: Int,
-             encrypted: Boolean = false, threadPoolSize: Int = 50,
-             val handlers: List<Handler> = emptyList()) : Runnable, Closeable {
+class Server(private val listeners: List<ServerListener>,
+             private val handlers: List<Handler> = emptyList(),
+             threadPoolSize: Int = 50) : Closeable {
     companion object {
         private val _logger = loggerFor<Server>()
     }
 
     private var _running = false
-    private val _socket: ServerSocket
     private val _threadPool: ThreadPoolExecutor
 
     init {
-        _logger.info("Creating server socket on ${inetAddress.hostAddress}:$port (backlog=$backlog)")
-
-        _socket = if (encrypted) {
-            SSLServerSocketFactory.getDefault()
-                    .createServerSocket(port, backlog, inetAddress)
-        } else {
-            ServerSocket(port, backlog, inetAddress)
-        }
-
-
         _logger.info("Creating thread pool (size=$threadPoolSize)")
         _threadPool = Executors.newFixedThreadPool(threadPoolSize) as ThreadPoolExecutor
     }
 
-    override fun run() {
+    val initialized: Boolean
+        get() = listeners.all { it.initialized }
+
+    fun start() {
         _logger.info("Starting server")
 
         _running = true
 
-        while (_running) {
-            val incomingSocket = _socket.accept()
+        listeners.forEach { listener ->
+            listener.onAccept = ::onConnect
+            listener.setup()
+            _threadPool.execute(listener)
+        }
+    }
+
+    private fun onConnect(socket: Socket) {
+        _logger.trace("Handling connection on other thread")
+
+        _threadPool.execute({
+            _logger.trace("Handling connection")
 
             try {
-                val request = Request.fromInputStream(incomingSocket.inputStream)
+                val request = Request.fromInputStream(socket.inputStream)
 
-                var response: Response? = null
-
-                for (handler in handlers) {
-                    if (handler.entryPointPattern.matcher(request.requestLine.location.safePath).matches()) {
-                        response = handler.onRequest(ServerRequest(request))
-                                .build().internalResponse
-                        break
-                    }
+                val handler = handlers.firstOrNull {
+                    it.entryPointPattern.matcher(request.requestLine.location.safePath).matches()
                 }
 
-                if (response == null) {
-                    response = Response(ResponseLine(404, "Not Found"))
+                val response = if (handler != null) {
+                    handler.onRequest(ServerRequest(request)).build().internalResponse
+                } else {
+                    Response(ResponseLine(404, "Not Found"))
                 }
 
-                response.write(incomingSocket.outputStream)
+                response.write(socket.outputStream)
             } catch (e: Exception) {
                 _logger.warn("Error processing request", e)
 
                 Response(ResponseLine(500, "Server Error"))
-                        .write(incomingSocket.outputStream)
+                        .write(socket.outputStream)
             } finally {
-                incomingSocket.close()
+                socket.close()
             }
-        }
+        })
     }
 
     override fun close() {
         _logger.debug("Closing server")
 
         _running = false
+
+        listeners.forEach { it.close() }
 
         _threadPool.shutdown() // Disable new tasks from being submitted
 
@@ -106,11 +103,8 @@ class Server(inetAddress: InetAddress, port: Int, backlog: Int,
 fun buildServer(init: ServerBuilder.() -> Unit) = ServerBuilder(init).build()
 
 class ServerBuilder constructor() {
-    private var _inetAddress: InetAddress = InetAddress.getByName("0.0.0.0")
-    private var _port: Int = 8080
-    private var _encrypted: Boolean = false
-    private var _backlog: Int = 50
-    private var _threadPoolSize: Int = 100
+    var threadPoolSize: Int = 100
+    private val _listenerBuilders = mutableListOf<ServerListenerBuilder>()
     private val _handlerBuilders = mutableListOf<HandlerBuilder>()
     private var _defaultHandlerBuilder: HandlerBuilder? = null
 
@@ -118,28 +112,8 @@ class ServerBuilder constructor() {
         init()
     }
 
-    fun inetAddress(init: () -> InetAddress) {
-        _inetAddress = init()
-    }
-
-    fun host(init: () -> String) {
-        _inetAddress = InetAddress.getByName(init())
-    }
-
-    fun port(init: () -> Int) {
-        _port = init()
-    }
-
-    fun encrypted(init: () -> Boolean) {
-        _encrypted = init()
-    }
-
-    fun backlog(init: () -> Int) {
-        _backlog = init()
-    }
-
-    fun threadPoolSize(init: () -> Int) {
-        _threadPoolSize = init()
+    fun listen(init: ServerListenerBuilder.() -> Unit) {
+        _listenerBuilders.add(ServerListenerBuilder(init))
     }
 
     fun handle(init: HandlerBuilder.() -> Unit) {
@@ -162,12 +136,18 @@ class ServerBuilder constructor() {
     }
 
     fun build(): Server {
+        val listeners = _listenerBuilders.map(ServerListenerBuilder::build)
+                .toMutableList()
+
+        if (listeners.isEmpty()) {
+            listeners.add(ServerListenerBuilder().build()) // Construct a default listener
+        }
+
         val handlers = _handlerBuilders.map(HandlerBuilder::build)
                 .toMutableList()
 
         _defaultHandlerBuilder?.apply { handlers.add(build()) }
 
-        return Server(_inetAddress, _port, _backlog, _encrypted,
-                _threadPoolSize, handlers)
+        return Server(listeners, handlers, threadPoolSize)
     }
 }

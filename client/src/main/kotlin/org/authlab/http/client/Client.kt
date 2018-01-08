@@ -1,8 +1,8 @@
 package org.authlab.http.client
 
 import org.authlab.util.loggerFor
-import org.authlab.http.Body
-import org.authlab.http.EmptyBody
+import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.EmptyBody
 import org.authlab.http.Header
 import org.authlab.http.Headers
 import org.authlab.http.Host
@@ -11,7 +11,7 @@ import org.authlab.http.QueryParameters
 import org.authlab.http.Request
 import org.authlab.http.RequestLine
 import org.authlab.http.Response
-import org.authlab.http.emptyBody
+import org.authlab.http.bodies.emptyBody
 import java.io.Closeable
 import java.io.IOException
 import java.net.Socket
@@ -96,7 +96,7 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
     }
 
     private class RequestBuilderImpl(private val client: Client,
-                                     private var path: String = "/",
+                                     override var path: String = "/",
                                      private var query: QueryParameters = QueryParameters(),
                                      private var headers: Headers = Headers()) : RequestBuilder {
 
@@ -104,28 +104,31 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
             init()
         }
 
-        override fun path(path: String): RequestBuilder {
-            this.path = path
-            return this
-        }
+        override var contentType: String?
+            get() = headers.getHeader("Content-Type")?.getFirst()
+            set(contentType) {
+                headers = headers.withoutHeaders("Content-Type")
+
+                if (contentType != null) {
+                    headers = headers.withHeader("Content-Type", contentType)
+                }
+            }
+
+        override var accept: String?
+            get() = headers.getHeader("Accept")?.getFirst()
+            set(contentType) {
+                headers = headers.withoutHeaders("Accept")
+
+                if (contentType != null) {
+                    headers = headers.withHeader("Accept", contentType)
+                }
+            }
 
         override fun query(param: Pair<String, String>)
                 = query(param.first, param.second)
 
         override fun query(name: String, value: String?): RequestBuilder {
             query = query.withParameter(name, value)
-            return this
-        }
-
-        override fun contentType(contentType: String): RequestBuilder {
-            headers = headers.withoutHeaders("Content-Type")
-                    .withHeader("Content-Type", contentType)
-            return this
-        }
-
-        override fun accept(accept: String): RequestBuilder {
-            headers = headers.withoutHeaders("Accept")
-                    .withHeader("Accept", accept)
             return this
         }
 
@@ -137,27 +140,31 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
             return this
         }
 
-        override fun get(): Response {
-            return execute("GET", emptyBody())
+        override fun get(path: String?): Response {
+            return execute("GET", emptyBody(), path)
         }
 
-        override fun post(body: Body): Response {
-            return execute("POST", body)
+        override fun post(body: Body, path: String?): Response {
+            return execute("POST", body, path)
         }
 
-        override fun put(body: Body): Response {
-            return execute("PUT", body)
+        override fun put(body: Body, path: String?): Response {
+            return execute("PUT", body, path)
         }
 
-        override fun delete(): Response {
-            return execute("DELETE", emptyBody())
+        override fun delete(path: String?): Response {
+            return execute("DELETE", emptyBody(), path)
         }
 
-        override fun patch(body: Body): Response {
-            return execute("PATCH", body)
+        override fun patch(body: Body, path: String?): Response {
+            return execute("PATCH", body, path)
         }
 
-        override fun execute(method: String, body: Body): Response {
+        override fun execute(method: String, body: Body, path: String?): Response {
+            if (path != null) {
+                this.path = path
+            }
+
             headers = headers.withHeader("Host", client.host.hostnameAndPort)
 
             if (body !is EmptyBody) {
@@ -171,64 +178,37 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
             }
 
             return client.execute(Request(
-                    RequestLine(method, Location(client.host, path, query)),
+                    RequestLine(method, Location(client.host, this.path, query)),
                     headers, body))
         }
     }
 }
 
-fun buildClient(init: ClientBuilder.() -> Unit) = ClientBuilder(init).build()
 fun buildClient(host: String, init: ClientBuilder.() -> Unit = {}) = ClientBuilder(host, init).build()
 
-class ClientBuilder() {
-    private var _host = Host("localhost")
-    private var _proxy: Host? = null
-    private var _socketFactory: SocketFactory? = null
+class ClientBuilder(private val host: String) {
+    var proxy: String? = null
+    var socketFactory: SocketFactory? = null
 
-    constructor(init: ClientBuilder.() -> Unit) : this() {
+    constructor(host: String, init: ClientBuilder.() -> Unit = {}) : this(host) {
         init()
     }
 
-    constructor(host: String, init: ClientBuilder.() -> Unit = {}) : this(init) {
-        host { host }
-    }
-
-    fun host(init: () -> String) {
-        _host = Host.fromString(init())
-    }
-
-    fun hostname(init: () -> String) {
-        _host = _host.withHostname(init())
-    }
-
-    fun port(init: () -> Int) {
-        _host = _host.withPort(init())
-    }
-
-    fun scheme(init: () -> String) {
-        _host = _host.withScheme(init())
-    }
-
-    fun proxy(init: () -> String) {
-        _proxy = Host.fromString(init())
-    }
-
-    fun socketFactory(init: () -> SocketFactory) {
-        _socketFactory = init()
-    }
-
     fun build(): Client {
+        val host = Host.fromString(this.host)
+        val proxy = this.proxy?.let { Host.fromString(it) }
+
         val socketFactory = when {
-            _socketFactory != null -> _socketFactory!!
-            _proxy != null -> SocketFactory.getDefault()
-            _host.scheme == "https" -> SSLSocketFactory.getDefault()
+            this.socketFactory != null -> this.socketFactory!!
+            proxy != null -> SocketFactory.getDefault()
+            host.scheme == "https" -> SSLSocketFactory.getDefault()
             else -> SocketFactory.getDefault()
         }
 
         val socketProvider: () -> Socket = {
-            (_proxy ?: _host).run { socketFactory.createSocket(hostname, port) }
+            (proxy ?: host).run { socketFactory.createSocket(hostname, port) }
         }
 
-        return Client(_host, socketProvider, _proxy)
+        return Client(host, socketProvider, proxy)
     }
 }

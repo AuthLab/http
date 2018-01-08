@@ -50,3 +50,19 @@ class FormParameters(parameters: Map<String, Parameter> = mapOf()) : Parameters<
         }
     }.joinToString("&")
 }
+
+class FormParametersBuilder() : ParametersBuilder() {
+    constructor(init: ParametersBuilder.() -> Unit) : this() {
+        init()
+    }
+
+    fun build(): FormParameters {
+        var formParameters = FormParameters()
+
+        _parameters.forEach {
+            formParameters = formParameters.withParameter(it.first, it.second)
+        }
+
+        return formParameters
+    }
+}

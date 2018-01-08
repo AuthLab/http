@@ -3,30 +3,29 @@ package org.authlab.http.server
 import io.kotlintest.matchers.shouldBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.crypto.setupDefaultSslContext
-import org.authlab.http.StringBody
+import org.authlab.http.bodies.StringBody
 import org.authlab.http.client.buildClient
 import org.authlab.util.randomPort
 
 class ServerIntegrationSpec : StringSpec() {
+    override val oneInstancePerTest = false
+
     init {
         setupDefaultSslContext()
 
         "A server with no registered endpoints will return 404" {
-            val port = randomPort()
+            val serverPort = randomPort()
 
             val server = buildServer {
-                host { "localhost" }
-                port { port }
-            }.also { Thread(it).start() }
+                listen {
+                    host = "localhost"
+                    port = serverPort
+                }
+            }.also { it.start() }
 
             val response = server.use {
-                buildClient {
-                    hostname { "localhost" }
-                    port { port }
-                }.use { client ->
-                    client.request {
-                        path { "/" }
-                    }.get()
+                buildClient("localhost:$serverPort").use { client ->
+                    client.request().get()
                 }
             }
 
@@ -34,33 +33,31 @@ class ServerIntegrationSpec : StringSpec() {
         }
 
         "A server can have a registered endpoint" {
-            val port = randomPort()
+            val serverPort = randomPort()
 
             val server = buildServer {
-                host { "localhost" }
-                port { port }
+                listen {
+                    host = "localhost"
+                    port = serverPort
+                }
 
                 handle("/foo") {
                     status { 200 to "OK" }
                     body { StringBody("bar") }
                 }
-            }.also { Thread(it).start() }
+            }.also { it.start() }
 
             server.use {
-                val badResponse = buildClient("localhost:$port")
+                val badResponse = buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request {
-                                path { "/" }
-                            }.get()
+                            client.request().get()
                 }
 
                 badResponse.responseLine.statusCode shouldBe 404
 
-                val okResponse = buildClient("localhost:$port")
+                val okResponse = buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request {
-                                path { "/foo" }
-                            }.get()
+                            client.request().get("/foo")
                         }
 
                 okResponse.responseLine.statusCode shouldBe 200
@@ -69,11 +66,13 @@ class ServerIntegrationSpec : StringSpec() {
         }
 
         "A server can have a registered endpoint with wildcards in the path" {
-            val port = randomPort()
+            val serverPort = randomPort()
 
             val server = buildServer {
-                host { "localhost" }
-                port { port }
+                listen {
+                    host = "localhost"
+                    port = serverPort
+                }
 
                 handle("/do/*/mi") {
                     status { 200 to "OK" }
@@ -84,33 +83,27 @@ class ServerIntegrationSpec : StringSpec() {
                     status { 200 to "OK" }
                     body { StringBody("/do/*") }
                 }
-            }.also { Thread(it).start() }
+            }.also { it.start() }
 
             server.use {
-                val badResponse = buildClient("localhost:$port")
+                val badResponse = buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request {
-                                path { "/" }
-                            }.get()
+                            client.request().get()
                         }
 
                 badResponse.responseLine.statusCode shouldBe 404
 
-                var okResponse = buildClient("localhost:$port")
+                var okResponse = buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request {
-                                path { "/do/re" }
-                            }.get()
+                            client.request().get("/do/re")
                         }
 
                 okResponse.responseLine.statusCode shouldBe 200
                 (okResponse.body as StringBody).data shouldBe "/do/*"
 
-                okResponse = buildClient("localhost:$port")
+                okResponse = buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request {
-                                path { "/do/re/mi" }
-                            }.get()
+                            client.request().get("/do/re/mi")
                         }
 
                 okResponse.responseLine.statusCode shouldBe 200
@@ -119,11 +112,13 @@ class ServerIntegrationSpec : StringSpec() {
         }
 
         "A server can have a registered endpoint that handles POST requests" {
-            val port = randomPort()
+            val serverPort = randomPort()
 
             val server = buildServer {
-                host { "localhost" }
-                port { port }
+                listen {
+                    host = "localhost"
+                    port = serverPort
+                }
 
                 handle("/foo") { request ->
                     val body = request.body as StringBody
@@ -131,14 +126,12 @@ class ServerIntegrationSpec : StringSpec() {
                     status { 200 to "OK" }
                     body { StringBody(body.data.toUpperCase()) }
                 }
-            }.also { Thread(it).start() }
+            }.also { it.start() }
 
             val response = server.use {
-                buildClient("localhost:$port")
+                buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request {
-                                path { "/foo" }
-                            }.post(StringBody("lorem ipsum ..."))
+                            client.request().post(StringBody("lorem ipsum ..."), "/foo")
                         }
             }
 
@@ -147,25 +140,25 @@ class ServerIntegrationSpec : StringSpec() {
         }
 
         "A server can be encrypted" {
-            val port = randomPort()
+            val serverPort = randomPort()
 
             val server = buildServer {
-                host { "localhost" }
-                port { port }
-                encrypted { true }
+                listen {
+                    host = "localhost"
+                    port = serverPort
+                    secure = true
+                }
 
                 handle("/foo") {
                     status { 200 to "OK" }
                     body { StringBody("bar") }
                 }
-            }.also { Thread(it).start() }
+            }.also { it.start() }
 
             server.use {
-                val response = buildClient("https://localhost:$port")
+                val response = buildClient("https://localhost:$serverPort")
                         .use { client ->
-                            client.request {
-                                path { "/foo" }
-                            }.get()
+                            client.request().get("/foo")
                         }
 
                 response.responseLine.statusCode shouldBe 200

@@ -8,8 +8,6 @@
       <module name="core_test" target="1.8" />
       <module name="echo_server_main" target="1.8" />
       <module name="echo_server_test" target="1.8" />
-      <module name="http_main" target="1.8" />
-      <module name="http_test" target="1.8" />
       <module name="proxy_main" target="1.8" />
       <module name="proxy_test" target="1.8" />
       <module name="server_main" target="1.8" />

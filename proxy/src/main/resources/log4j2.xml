@@ -25,7 +25,6 @@
         <Logger name="org.authlab" level="DEBUG"/>
         <Logger name="org.authlab.crypto" level="TRACE"/>
         <!--<Logger name="sorg.authlab.http" level="TRACE"/>-->
-        <!--<Logger name="org.authlab.http.RawBody" level="TRACE"/>-->
 
         <Root level="INFO">
             <AppenderRef ref="Console"/>

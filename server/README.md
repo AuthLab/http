@@ -8,17 +8,27 @@ A server is constructed through a builder:
 
 ```kotlin
 val server = Serverbuilder {
-	host { "localhost" }
-	port { 8080 }
-}.build
+    listen { 
+        host = "localhost"
+        port = 8080
+    }
+    listen {
+        host = "localhost"
+        port = 8443
+        secure = true
+    }
+    threadPoolSize = 100
+}.build()
 ```
 
 There is also a helper function to configure and build (instantiate) a server in one go:
 
 ```kotlin
 val server = buildServer {
-	host { "localhost" }
-	port { 8080 }
+    listen { 
+        host = "localhost"
+        port = 8080
+    }
 }
 ```
 
@@ -27,28 +37,22 @@ Running the server:
 ```kotlin
 val server = buildServer {
 	...
-}.run()
-```
-
-Running the server in another thread:
-
-```kotlin
-val server = buildServer {
-	...
-}.also { Thread(it).start() }
+}.start() // This call is non-blocking; each listener will consume a thread on the internal pool
 ```
 
 Registering a request handler:
 
 ```kotlin
 val server = buildServer {
-	host { "localhost" }
-	port { 8080 }
+    listen { 
+        host = "localhost"
+        port = 8080
+    }
 	
-	handle("/foo") {
-		status { 200 to "OK" }
-		body { StringBody("bar") }
-	}
+    handle("/foo") {
+        status { 200 to "OK" }
+        body { StringBody("bar") }
+    }
 }
 ```
 
@@ -56,18 +60,20 @@ Registering a default handler for when no handler meets the requested requiremen
 
 ```kotlin
 val server = buildServer {
-	host { "localhost" }
-	port { 8080 }
+    listen { 
+        host = "localhost"
+        port = 8080
+    }
 	
-	handle("/foo") {
-		status { 200 to "OK" }
-		body { StringBody("bar") }
-	}
+    handle("/foo") {
+        status { 200 to "OK" }
+        body { StringBody("bar") }
+    }
 	
-	default { request ->
-		status { 404 to "Not Found" }
-		body { StringBody("Sorry, I could not find ${request.path}") }
-	}
+    default { request ->
+        status { 404 to "Not Found" }
+        body { StringBody("Sorry, I could not find ${request.path}") }
+    }
 }
 ```
 
@@ -75,12 +81,14 @@ Creating a simple echo server:
 
 ```kotlin
 val server = buildServer {
-	host { "localhost" }
-	port { 8080 }
+    listen { 
+        host = "localhost"
+        port = 8080
+    }
 	
-	default { request ->
-		status { 200 to "OK" }
-		body { JsonBody(request.toHar()) }
-	}
+    default { request ->
+        status { 200 to "OK" }
+        body { JsonBody(request.toHar()) }
+    }
 }
 ```

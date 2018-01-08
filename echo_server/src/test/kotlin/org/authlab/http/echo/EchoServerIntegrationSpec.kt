@@ -2,17 +2,19 @@ package org.authlab.http.echo
 
 import io.kotlintest.matchers.shouldBe
 import io.kotlintest.specs.StringSpec
-import org.authlab.http.JsonBody
 import org.authlab.http.client.ClientBuilder
+import org.authlab.http.client.asJson
 
 class EchoServerIntegrationSpec : StringSpec() {
     private val _port = 9090
 
     @Suppress("unused")
     private val _echoServer = autoClose(EchoServerBuilder {
-        host { "localhost" }
-        port { _port }
-    }.build().also { Thread(it).start() })
+        listen {
+            host = "localhost"
+            port = _port
+        }
+    }.build().also { it.start() })
 
     private var _client = autoClose(ClientBuilder("http://localhost:$_port").build())
 
@@ -21,7 +23,7 @@ class EchoServerIntegrationSpec : StringSpec() {
     init {
         "A simple GET request is properly echoed as JSON" {
             val response = _client.request {
-                path { "/foo/bar" }
+                path = "/foo/bar"
                 query { "1337" to "42" }
                 header { "Custom-Header" to "Not a footer" }
             }.get()
@@ -30,7 +32,8 @@ class EchoServerIntegrationSpec : StringSpec() {
 
             response.headers.getHeader("Content-Type")!!.getFirst() shouldBe "application/json"
 
-            val json = (response.body as JsonBody).getTypedData<Map<String, Any>>()
+            val json = response.asJson<Map<String, Any>>()
+
 
             println(json)
 

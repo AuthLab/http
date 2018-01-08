@@ -1,14 +1,12 @@
 package org.authlab.http.client
 
-import org.authlab.http.Body
+import org.authlab.http.bodies.Body
 import org.authlab.http.Response
 
 interface RequestBuilder {
-    fun path(path: String): RequestBuilder
-
-    fun path(init: () -> String) {
-        path(init())
-    }
+    var path: String
+    var contentType: String?
+    var accept: String?
 
     fun query(name: String, value: String? = null): RequestBuilder
 
@@ -16,18 +14,6 @@ interface RequestBuilder {
 
     fun query(init: () -> Pair<String, String>) {
         query(init())
-    }
-
-    fun contentType(contentType: String): RequestBuilder
-
-    fun contentType(init: () -> String) {
-        contentType(init())
-    }
-
-    fun accept(accept: String): RequestBuilder
-
-    fun accept(init: () -> String) {
-        accept(init())
     }
 
     fun header(name: String, value: String): RequestBuilder
@@ -38,10 +24,10 @@ interface RequestBuilder {
         header(init())
     }
 
-    fun get(): Response
-    fun post(body: Body): Response
-    fun put(body: Body): Response
-    fun delete(): Response
-    fun patch(body: Body): Response
-    fun execute(method: String, body: Body): Response
+    fun get(path: String? = null): Response
+    fun post(body: Body, path: String? = null): Response
+    fun put(body: Body, path: String? = null): Response
+    fun delete(path: String? = null): Response
+    fun patch(body: Body, path: String? = null): Response
+    fun execute(method: String, body: Body, path: String? = null): Response
 }

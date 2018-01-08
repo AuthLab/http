@@ -62,9 +62,11 @@ class Parameter(val name: String, val values: List<String> = emptyList()) {
         return Parameter(name, newValues)
     }
 
-    fun first() = values.first()
+    fun first(): String
+            = values.first()
 
-    fun firstOrNull() = values.firstOrNull()
+    fun firstOrNull(): String?
+            = values.firstOrNull()
 
     fun toHar(): List<*> {
         return if (values.isEmpty()) {
@@ -76,3 +78,16 @@ class Parameter(val name: String, val values: List<String> = emptyList()) {
         }
     }
 }
+
+open class ParametersBuilder() {
+    protected val _parameters = mutableListOf<Pair<String, String?>>()
+
+    constructor(init: ParametersBuilder.() -> Unit) : this() {
+        init()
+    }
+
+    fun parameter(init: () -> Pair<String, String?>) {
+        _parameters.add(init())
+    }
+}
+

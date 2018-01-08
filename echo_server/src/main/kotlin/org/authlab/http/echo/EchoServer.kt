@@ -1,9 +1,9 @@
 package org.authlab.http.echo
 
-import org.authlab.http.JsonBody
+import org.authlab.http.bodies.JsonBody
 import org.authlab.http.server.Server
 import org.authlab.http.server.ServerBuilder
-import java.net.InetAddress
+import org.authlab.http.server.ServerListenerBuilder
 
 class EchoServerBuilder() {
     private val _serverBuilder = ServerBuilder()
@@ -12,29 +12,15 @@ class EchoServerBuilder() {
         init()
     }
 
-    fun inetAddress(init: () -> InetAddress) {
-        _serverBuilder.inetAddress(init)
+    fun listen(init: ServerListenerBuilder.() -> Unit) {
+        _serverBuilder.listen(init)
     }
 
-    fun host(init: () -> String) {
-        _serverBuilder.host(init)
-    }
-
-    fun port(init: () -> Int) {
-        _serverBuilder.port(init)
-    }
-
-    fun encrypted(init: () -> Boolean) {
-        _serverBuilder.encrypted(init)
-    }
-
-    fun backlog(init: () -> Int) {
-        _serverBuilder.backlog(init)
-    }
-
-    fun threadPoolSize(init: () -> Int) {
-        _serverBuilder.threadPoolSize(init)
-    }
+    var threadPoolSize: Int
+        get() = _serverBuilder.threadPoolSize
+        set(size) {
+            _serverBuilder.threadPoolSize = size
+        }
 
     fun build(): Server {
         _serverBuilder.default { request ->

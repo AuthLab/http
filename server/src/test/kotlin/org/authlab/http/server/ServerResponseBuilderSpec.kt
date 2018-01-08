@@ -2,7 +2,7 @@ package org.authlab.http.server
 
 import io.kotlintest.matchers.shouldBe
 import io.kotlintest.specs.StringSpec
-import org.authlab.http.StringBody
+import org.authlab.http.bodies.StringBody
 
 class ServerResponseBuilderSpec : StringSpec() {
     init {

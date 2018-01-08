@@ -1,7 +1,7 @@
 package org.authlab.http.server
 
-import org.authlab.http.Body
-import org.authlab.http.EmptyBody
+import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.EmptyBody
 import org.authlab.http.Headers
 import org.authlab.http.Response
 import org.authlab.http.ResponseLine

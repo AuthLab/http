@@ -2,7 +2,7 @@ package org.authlab.http.proxy
 
 import org.slf4j.MDC
 import org.authlab.crypto.CertificateGeneratingKeyManager
-import org.authlab.http.EmptyBody
+import org.authlab.http.bodies.EmptyBody
 import org.authlab.http.Header
 import org.authlab.http.Host
 import org.authlab.http.Request

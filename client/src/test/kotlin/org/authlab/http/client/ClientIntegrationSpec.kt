@@ -3,11 +3,11 @@ package org.authlab.http.client
 import io.kotlintest.matchers.shouldBe
 import io.kotlintest.matchers.shouldNotBe
 import io.kotlintest.specs.StringSpec
-import org.authlab.http.FormBody
+import org.authlab.http.bodies.FormBody
 import org.authlab.http.FormParameters
-import org.authlab.http.JsonBody
+import org.authlab.http.bodies.JsonBody
 import org.authlab.http.Response
-import org.authlab.http.StringBody
+import org.authlab.http.bodies.StringBody
 import org.authlab.http.echo.EchoServerBuilder
 import org.authlab.util.randomPort
 
@@ -17,16 +17,20 @@ class ClientIntegrationSpec : StringSpec() {
 
     @Suppress("unused")
     private val _echoServer = autoClose(EchoServerBuilder {
-        host { "localhost" }
-        port { _serverPort }
-    }.build().also { Thread(it).start() })
+        listen {
+            host = "localhost"
+            port = _serverPort
+        }
+    }.build().also { it.start() })
 
     @Suppress("unused")
     private val _encryptedEchoServer = autoClose(EchoServerBuilder {
-        host { "localhost" }
-        port { _encryptedServerPort }
-        encrypted { true }
-    }.build().also { Thread(it).start() })
+        listen {
+            host = "localhost"
+            port = _encryptedServerPort
+            secure = true
+        }
+    }.build().also { it.start() })
 
     override val oneInstancePerTest = false
 
@@ -54,9 +58,7 @@ class ClientIntegrationSpec : StringSpec() {
         "it should be possible to make a simple GET request with a path" {
             val response = buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request {
-                            path { "/some/place/nice" }
-                        }.get()
+                        client.request().get("/some/place/nice")
                     }
 
             response.responseLine.statusCode shouldBe 200
@@ -152,7 +154,7 @@ class ClientIntegrationSpec : StringSpec() {
         "it should be possible to make a simple json POST request" {
             val response = buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request().post(JsonBody(mapOf("foo" to "bar")))
+                        client.request().postJson(mapOf("foo" to "bar"))
                     }
 
             response.responseLine.statusCode shouldBe 200
@@ -173,7 +175,10 @@ class ClientIntegrationSpec : StringSpec() {
         "it should be possible to make a simple form POST request" {
             val response = buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request().post(FormBody(FormParameters().withParameter("foo", "bar")))
+                        client.request().postForm {
+                            parameter { "name" to "Foo" }
+                            parameter { "surname" to "Bar" }
+                        }
                     }
 
             response.responseLine.statusCode shouldBe 200
@@ -186,18 +191,19 @@ class ClientIntegrationSpec : StringSpec() {
 
             val postData = getPostData(json)
 
-            postData["size"] shouldBe 7.0
+            postData["size"] shouldBe 20.0
             postData["mimeType"] shouldBe "application/x-www-form-urlencoded"
 
             val postParams = (postData["params"] as List<*>).filterIsInstance<Map<String, String>>()
 
-            postParams.find { it["name"] == "foo" }!!["value"] shouldBe "bar"
+            postParams.size shouldBe 2
+            postParams.find { it["name"] == "name" }!!["value"] shouldBe "Foo"
+            postParams.find { it["name"] == "surname" }!!["value"] shouldBe "Bar"
         }
 
         "it should be possible to make a simple proxied GET request" {
-            buildClient {
-                host { "http://localhost:$_serverPort" }
-                proxy { "localhost:8080" }
+            buildClient("http://localhost:$_serverPort") {
+                proxy = "localhost:8080"
             }.use { client ->
                 val response = client.request().get()
 
@@ -220,10 +226,8 @@ class ClientIntegrationSpec : StringSpec() {
         }.config(enabled = false)
 
         "it should be possible to make an encrypted GET request through a proxy tunnel" {
-            buildClient {
-                //                host { "https://localhost:$_encryptedServerPort" }
-                host { "https://www.example.com" }
-                proxy { "localhost:8080" }
+            buildClient("https://localhost:$_encryptedServerPort") {
+                proxy = "localhost:8080"
             }.use { client ->
                 val response = client.request().get()
 
@@ -261,6 +265,7 @@ class ClientIntegrationSpec : StringSpec() {
 
         val jsonBody = response.body as JsonBody
         println(jsonBody.json)
-        return jsonBody.getTypedData()
+
+        return response.asJson()
     }
 }

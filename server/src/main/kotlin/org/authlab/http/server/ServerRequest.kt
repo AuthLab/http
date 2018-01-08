@@ -1,6 +1,6 @@
 package org.authlab.http.server
 
-import org.authlab.http.Body
+import org.authlab.http.bodies.Body
 import org.authlab.http.Headers
 import org.authlab.http.Host
 import org.authlab.http.QueryParameters
