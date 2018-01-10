@@ -94,7 +94,7 @@ fun main(args: Array<String>) {
         return
     }
 
-    setupDefaultSslContext()
+    setupDefaultSslContext(storeGeneratedCertificates = true)
 
     Thread(ProxyService(inetAddress, port, backlog, false, threadPool, inspectTunnels)).start()
 }
