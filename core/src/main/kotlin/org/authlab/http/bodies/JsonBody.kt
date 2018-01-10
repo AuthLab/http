@@ -31,7 +31,7 @@ import java.io.OutputStreamWriter
 import java.nio.charset.StandardCharsets
 
 class JsonBody private constructor(data: Any?, originalBody: RawBody?) :
-        Body("application/json", null, originalBody) {
+        Body("application/json", null, null, originalBody) {
     private val _data = data
 
     constructor(data: Any) : this(data, null)

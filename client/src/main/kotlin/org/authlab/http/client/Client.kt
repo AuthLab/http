@@ -193,11 +193,25 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
 
             if (body !is EmptyBody) {
                 val contentLength = body.size
-                _logger.debug("Applying Content-Length header: $contentLength")
-                headers = headers.withHeader(Header("Content-Length", "$contentLength"))
+
+                if (!body.streaming && !headers.hasHeader("Content-Length")) {
+                    _logger.debug("Applying Content-Length header: $contentLength")
+                    headers = headers.withHeader(Header("Content-Length", "$contentLength"))
+                }
 
                 if (!headers.hasHeader("Content-Type")) {
+                    _logger.debug("Applying Content-Type header: ${body.contentType}")
                     headers = headers.withHeader("Content-Type", body.contentType)
+                }
+
+                if (body.contentEncoding != null && !headers.hasHeader("Content-Encoding")) {
+                    _logger.debug("Applying Content-Encoding header: ${body.contentEncoding}")
+                    headers = headers.withHeader("Content-Encoding", body.contentEncoding!!)
+                }
+
+                if (body.transferEncoding != null && !headers.hasHeader("Transfer-Encoding")) {
+                    _logger.debug("Applying Transfer-Encoding header: ${body.transferEncoding}")
+                    headers = headers.withHeader("Transfer-Encoding", body.transferEncoding!!)
                 }
             }
 

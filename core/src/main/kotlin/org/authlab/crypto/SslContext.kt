@@ -39,14 +39,14 @@ fun setupDefaultSslContext(caFilePath: String = "./ca.p12", password: String = "
                            defaultHostname: String = "localhost", storeGeneratedCertificates: Boolean = false) {
     val keyStore = KeyStore.getInstance("PKCS12")
 
-    val caFile = try {
+    val caInputStream = try {
         File(caFilePath).inputStream()
     } catch (e: FileNotFoundException) {
         _logger.debug("CA file not found, attempting to load from resource instead")
         ClassLoader.getSystemResourceAsStream(caFilePath)
     }
 
-    keyStore.load(caFile, password.toCharArray())
+    keyStore.load(caInputStream, password.toCharArray())
 
     val aliases = keyStore.aliases().toList()
 

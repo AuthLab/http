@@ -26,7 +26,7 @@ package org.authlab.http.bodies
 
 import java.io.OutputStream
 
-class EmptyBody: Body("", null) {
+class EmptyBody: Body("", null, null) {
     override fun calculateSize() = 0
 
     override fun doWrite(outputStream: OutputStream) {

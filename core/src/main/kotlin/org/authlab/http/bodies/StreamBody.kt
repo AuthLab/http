@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2018 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,29 +24,49 @@
 
 package org.authlab.http.bodies
 
-import java.io.BufferedWriter
+import org.authlab.util.loggerFor
+import java.io.InputStream
 import java.io.OutputStream
-import java.io.OutputStreamWriter
-import java.nio.charset.StandardCharsets
 
-open class StringBody protected constructor(val data: String, contentType: String = "text/plain",
-                      originalBody: RawBody?) : Body(contentType, null, null, originalBody) {
-    constructor(data: String, contentType: String = "text/plain") : this(data, contentType, null)
-
+class StreamBody(val inputStream: InputStream, contentType: String = "application/octet-stream") :
+        Body(contentType, null, "chunked") {
     companion object {
-        fun fromRawBody(rawBody: RawBody): StringBody {
-            val rawString = rawBody.bytes.toString(StandardCharsets.UTF_8)
+        val _logger = loggerFor<StringBody>()
+    }
 
-            return StringBody(rawString, originalBody = rawBody)
+    override fun isStreaming(): Boolean
+            = true
+
+    override fun calculateSize(): Int
+            = 0
+
+    override fun doWrite(outputStream: OutputStream) {
+        val buffer = ByteArray(1024)
+
+        inputStream.use { inputStream ->
+            var bytesRead: Int
+
+            do {
+                bytesRead = inputStream.read(buffer)
+
+                if (bytesRead > 0) {
+                    writeChunkHeader(bytesRead, outputStream)
+
+                    outputStream.write(buffer, 0, bytesRead)
+                    outputStream.write("\r\n".toByteArray())
+                }
+            } while (bytesRead > 0)
+
+            writeChunkHeader(0, outputStream)
         }
     }
 
-    override fun calculateSize(): Int
-            =  data.length
+    private fun writeChunkHeader(size: Int, outputStream: OutputStream) {
+        val chunkHeader = size.toString(16)
 
-    override fun doWrite(outputStream: OutputStream) {
-        val writer = BufferedWriter(OutputStreamWriter(outputStream))
-        writer.write(data)
-        writer.flush()
+        _logger.trace("Writing chunk header: $chunkHeader")
+
+        outputStream.write(chunkHeader.toByteArray())
+        outputStream.write("\r\n".toByteArray())
     }
 }

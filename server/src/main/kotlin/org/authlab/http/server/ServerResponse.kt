@@ -81,11 +81,21 @@ class ServerResponseBuilder() {
         val body = _body
 
         if (body !is EmptyBody) {
-            _headers = _headers.withoutHeaders("Content-Length")
-                    .withHeader("Content-Length", body.size.toString())
 
-            if(!_headers.hasHeader("Content-Type")) {
+            if (!body.streaming && !_headers.hasHeader("Content-Length")) {
+                _headers = _headers.withHeader("Content-Length", body.size.toString())
+            }
+
+            if (!_headers.hasHeader("Content-Type")) {
                 _headers = _headers.withHeader("Content-Type", body.contentType)
+            }
+
+            if (body.contentEncoding != null && !_headers.hasHeader("Content-Encoding")) {
+                _headers = _headers.withHeader("Content-Encoding", body.contentEncoding!!)
+            }
+
+            if (body.transferEncoding != null && !_headers.hasHeader("Transfer-Encoding")) {
+                _headers = _headers.withHeader("Transfer-Encoding", body.transferEncoding!!)
             }
         }
 

@@ -31,7 +31,7 @@ import java.io.OutputStreamWriter
 import java.nio.charset.StandardCharsets
 
 class FormBody private constructor(val parameters: FormParameters, originalBody: RawBody?) :
-        Body("application/x-www-form-urlencoded", null, originalBody) {
+        Body("application/x-www-form-urlencoded", null, null, originalBody) {
     constructor(parameters: FormParameters = FormParameters()) : this(parameters, null)
 
     companion object {

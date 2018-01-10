@@ -33,12 +33,15 @@ import java.io.PushbackInputStream
 import java.util.Arrays
 
 class RawBody(val bytes: ByteArray, contentType: String = "application/octet-stream",
-              contentEncoding: String? = null) : Body(contentType, contentEncoding) {
+              contentEncoding: String? = null) :
+        Body(contentType, contentEncoding, null) {
     companion object {
         private val _logger = loggerFor<RawBody>()
 
-        fun fromInputStream(inputStream: InputStream, length: Int = 0, chunked: Boolean = false): RawBody {
+        fun fromInputStream(inputStream: InputStream, length: Int = 0, transferEncoding: String?): RawBody {
             val pushbackInputStream = inputStream as? PushbackInputStream ?: PushbackInputStream(inputStream)
+
+            val chunked = transferEncoding?.equals("chunked", ignoreCase = true) == true
 
             val initialBufferSize = if (!chunked) {
                 _logger.debug("Reading body with expected length: $length")

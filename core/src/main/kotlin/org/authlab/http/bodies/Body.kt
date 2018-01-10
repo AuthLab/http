@@ -30,8 +30,9 @@ import java.io.InputStream
 import java.io.OutputStream
 
 abstract class Body protected constructor(val contentType: String, val contentEncoding: String?,
-                                          protected val backingBody: Body? = null) {
-    constructor(contentType: String, contentEncoding: String?) : this(contentType, contentEncoding, null)
+                                          val transferEncoding: String?, protected val backingBody: Body? = null) {
+    constructor(contentType: String, contentEncoding: String?, transferEncoding: String?) :
+            this(contentType, contentEncoding, transferEncoding, null)
 
     companion object {
         private val _logger = loggerFor<Body>()
@@ -47,26 +48,27 @@ abstract class Body protected constructor(val contentType: String, val contentEn
 
         fun fromInputStream(inputStream: InputStream, headers: Headers, beforeBody: () -> Unit = {}): Body {
             val contentLengthHeader = headers.getHeader("Content-Length")
-            val chunked = headers.getHeader("Transfer-Encoding")?.getFirst() == "chunked"
+            val transferEncodingHeader = headers.getHeader("Transfer-Encoding")
 
-            return if (contentLengthHeader != null || chunked) {
+            return if (contentLengthHeader != null || transferEncodingHeader != null) {
                 beforeBody()
 
                 _logger.debug("Attempting to read body")
 
                 fromInputStream(inputStream,
                         contentLengthHeader?.getFirstAsInt() ?: 0,
-                        chunked,
                         headers.getHeader("Content-Type")?.getFirst(),
-                        headers.getHeader("Content-Encoding")?.getFirst())
+                        headers.getHeader("Content-Encoding")?.getFirst(),
+                        transferEncodingHeader?.getFirst())
             } else {
                 EmptyBody()
             }
         }
 
-        fun fromInputStream(inputStream: InputStream, length: Int = 0, chunked: Boolean = false,
-                            contentType: String? = null, contentEncoding: String? = null): Body {
-            var rawBody = RawBody.fromInputStream(inputStream, length, chunked)
+        fun fromInputStream(inputStream: InputStream, length: Int = 0,
+                            contentType: String? = null, contentEncoding: String? = null,
+                            transferEncoding: String? = null): Body {
+            var rawBody = RawBody.fromInputStream(inputStream, length, transferEncoding)
 
             if (contentType != null) {
                 rawBody = rawBody.withContentType(contentType)
@@ -86,6 +88,12 @@ abstract class Body protected constructor(val contentType: String, val contentEn
             }
         }
     }
+
+    val streaming: Boolean
+        get() = backingBody?.streaming ?: isStreaming()
+
+    protected open fun isStreaming(): Boolean
+            = false
 
     val size: Int
         get() = backingBody?.size ?: calculateSize()
