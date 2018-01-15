@@ -39,6 +39,16 @@ class Headers(val headers: Map<String, Header> = emptyMap()) {
         return Headers(mutableHeaders)
     }
 
+    fun withHeaders(headers: Headers): Headers {
+        var newHeaders = this
+
+        headers.headers.values.forEach { header ->
+            newHeaders = newHeaders.withHeader(header)
+        }
+
+        return newHeaders
+    }
+
     fun withoutHeaders(name: String): Headers {
         val mutableHeaders = headers.toMutableMap()
 
@@ -47,11 +57,25 @@ class Headers(val headers: Map<String, Header> = emptyMap()) {
         return Headers(mutableHeaders)
     }
 
+    operator fun get(name: String): Header?
+            = getHeader(name)
+
     fun getHeader(name: String): Header?
             = headers[name.toUpperCase()]
 
     fun hasHeader(name: String): Boolean
         = getHeader(name) != null
+
+    fun withReplacedHeader(header: Header): Headers
+            = withoutHeaders(header.name).withHeader(header)
+
+    fun withReplacedHeaders(headers: Headers): Headers {
+        val mutableHeaders = this.headers.toMutableMap()
+
+        mutableHeaders.putAll(headers.headers)
+
+        return Headers(mutableHeaders)
+    }
 
     fun toLines() = headers.values.flatMap { header -> header.toLines() }
 

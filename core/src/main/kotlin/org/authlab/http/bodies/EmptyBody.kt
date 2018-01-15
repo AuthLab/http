@@ -24,13 +24,23 @@
 
 package org.authlab.http.bodies
 
-import java.io.OutputStream
+import java.nio.ByteBuffer
 
-class EmptyBody: Body("", null, null) {
-    override fun calculateSize() = 0
-
-    override fun doWrite(outputStream: OutputStream) {
-    }
+class EmptyBody: Body<Unit>(Unit) {
+    override val writer: BodyWriter
+        get() = EmptyBodyWriter()
 }
 
-fun emptyBody(): Body = Body.empty()
+fun emptyBody() = EmptyBody()
+
+class EmptyBodyWriter : BodyWriter() {
+    override val contentLength: Int?
+        get() = null
+    override val contenteType: String?
+        get() = null
+    override val contenteEncoding: String?
+        get() = null
+
+    override fun onWriteChunk(buffer: ByteBuffer)
+            = false
+}

@@ -28,49 +28,89 @@ import com.google.gson.Gson
 import java.io.BufferedWriter
 import java.io.OutputStream
 import java.io.OutputStreamWriter
+import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 
-class JsonBody private constructor(data: Any?, originalBody: RawBody?) :
-        Body("application/json", null, null, originalBody) {
-    private val _data = data
+class JsonBody<out T>(data: T) : Body<T>(data) {
+    override val writer: BodyWriter
+        get() = JsonBodyWriter(data)
+}
 
-    constructor(data: Any) : this(data, null)
-
+class SerializedJsonBody(json: String) : StringBody(json) {
     companion object {
         private val _gson = Gson()
-
-        fun fromRawBody(rawBody: RawBody): JsonBody {
-            return JsonBody(null, rawBody)
-        }
     }
 
-    val json: String by lazy {
-        originalBody?.let {
-            originalBody.bytes.toString(StandardCharsets.UTF_8)
-        } ?: _gson.toJson(data)
+    inline fun <reified T> getTypedValue()
+            = getTypedValue(T::class.java)
+
+    fun <T> getTypedValue(type: Class<T>): T
+            = _gson.fromJson(data, type)
+}
+
+class JsonBodyReader : StringBodyReader() {
+    companion object {
+        private val _gson = Gson()
     }
 
-    val data: Any by lazy {
-        data ?: _gson.fromJson(json, Any::class.java)
-    }
+//    inline fun <reified T> getTypedValue()
+//            = getTypedValue(T::class.java)
+//
+//    fun <T> getTypedValue(type: Class<T>): T
+//            = _gson.fromJson(getValue(), type)
 
-    inline fun <reified T> getTypedData()
-            = getTypedData(T::class.java)
+    override fun getBody() = SerializedJsonBody(getValue())
 
-    fun <T> getTypedData(type: Class<T>): T {
-        return _gson.fromJson(json, type)
-    }
+}
 
-    override fun calculateSize()
-            = json.length
-
-    override fun doWrite(outputStream: OutputStream) {
-        val writer = BufferedWriter(OutputStreamWriter(outputStream))
-        writer.write(json)
-        writer.flush()
-    }
-
-    override fun toString(): String {
-        return json
+class JsonBodyWriter(val data: Any?) :
+        StringBodyWriter(_gson.toJson(data), "application/json") {
+    companion object {
+        private val _gson = Gson()
     }
 }
+
+//class JsonBody private constructor(data: Any?, originalBody: RawBody?) :
+//        Body("application/json", null, null, originalBody) {
+//    private val _data = data
+//
+//    constructor(data: Any) : this(data, null)
+//
+//    companion object {
+//        private val _gson = Gson()
+//
+//        fun fromRawBody(rawBody: RawBody): JsonBody {
+//            return JsonBody(null, rawBody)
+//        }
+//    }
+//
+//    val json: String by lazy {
+//        originalBody?.let {
+//            originalBody.bytes.toString(StandardCharsets.UTF_8)
+//        } ?: _gson.toJson(data)
+//    }
+//
+//    val data: Any by lazy {
+//        data ?: _gson.fromJson(json, Any::class.java)
+//    }
+//
+//    inline fun <reified T> getTypedData()
+//            = getTypedData(T::class.java)
+//
+//    fun <T> getTypedData(type: Class<T>): T {
+//        return _gson.fromJson(json, type)
+//    }
+//
+//    override fun calculateSize()
+//            = json.length
+//
+//    override fun doWrite(outputStream: OutputStream) {
+//        val writer = BufferedWriter(OutputStreamWriter(outputStream))
+//        writer.write(json)
+//        writer.flush()
+//    }
+//
+//    override fun toString(): String {
+//        return json
+//    }
+//}

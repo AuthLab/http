@@ -25,23 +25,31 @@
 package org.authlab.http
 
 import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.EmptyBody
-import org.authlab.http.bodies.JsonBody
-import org.authlab.http.bodies.RawBody
-import org.authlab.http.bodies.StringBody
 import org.authlab.http.bodies.emptyBody
 import org.authlab.util.loggerFor
 import org.authlab.io.readLine
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PushbackInputStream
 import java.util.Base64
 
-open class Response(val responseLine: ResponseLine, val headers: Headers = Headers(), val body: Body = emptyBody()) {
+open class Response(val responseLine: ResponseLine, val headers: Headers = Headers(), val body: Body<*> = emptyBody()) {
     companion object {
         private val _logger = loggerFor<Response>()
 
-        fun fromInputStream(inputStream: InputStream): Response {
+        fun <T> fromInputStream(inputStream: InputStream, bodyReader: BodyReader<T>): Response {
+            val response = fromInputStreamWithoutBody(inputStream)
+
+            val body = bodyReader.read(inputStream, response.headers).getBody()
+
+            return response.withBody(body)
+        }
+
+        fun fromInputStreamWithoutBody(inputStream: InputStream): Response {
             _logger.debug("Reading response from input stream")
 
             val pushbackInputStream = PushbackInputStream(inputStream)
@@ -69,15 +77,15 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
                 }
             } while(line != null && !line.isEmpty())
 
-            response ?: throw IllegalStateException("Response could not be read from input stream")
+            return response ?: throw IllegalStateException("Response could not be read from input stream")
 
-            if (line != null) {
-                response = response.withBody(Body.fromInputStream(pushbackInputStream, response.headers))
-            }
-
-            _logger.info("Response read from input stream: {}", response.responseLine)
-
-            return response
+//            if (line != null) {
+//                response = response.withBody(Body.fromInputStream(pushbackInputStream, response.headers))
+//            }
+//
+//            _logger.info("Response read from input stream: {}", response.responseLine)
+//
+//            return response
         }
     }
 
@@ -93,13 +101,19 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
         return Response(responseLine, headers.withHeader(header), body)
     }
 
-    fun withBody(body: Body): Response {
+    fun withBody(body: Body<*>): Response {
         return Response(responseLine, headers, body)
     }
 
     fun write(outputStream: OutputStream) {
+        write(outputStream, body.writer)
+    }
+
+    fun write(outputStream: OutputStream, bodyWriter: BodyWriter) {
+        val response = withHeaders(headers.withReplacedHeaders(bodyWriter.getHeaders()))
+
         _logger.debug("Writing response to output stream")
-        _logger.trace("Response: $this")
+        _logger.trace("Response: $response")
 
         val writer = outputStream.writer()
 
@@ -110,7 +124,7 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
         writer.write("\r\n")
         writer.flush()
 
-        body.write(outputStream)
+        bodyWriter.write(outputStream)
 
         _logger.info("Response written to output stream: {}", responseLine)
     }
@@ -125,9 +139,9 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
     override fun toString(): String {
         val sb = StringBuilder()
         toLines().forEach { line -> sb.appendln(line) }
-        if (body !is EmptyBody) {
-            sb.appendln().append("Body size: ").append(body.size)
-        }
+//        if (body !is EmptyBody) {
+//            sb.appendln().append("Body size: ").append(body.size)
+//        }
         return sb.toString()
     }
 
@@ -138,25 +152,29 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
                 "httpVersion" to responseLine.version,
                 "cookies" to Cookies.fromResponseHeaders(headers).toHar(),
                 "headers" to headers.toHar(),
-                "headersSize" to -1,
-                "bodySize" to body.size)
+                "headersSize" to -1)
 
         headers.getHeader("Location")?.also {
             har.put("redirectUrl", it.getFirst())
         }
 
-        val contentHar = mutableMapOf<String, Any>("size" to body.size)
+        val contentHar = mutableMapOf<String, Any>()
+
         headers.getHeader("Content-Type")?.also {
             contentHar.put("mimeType", it.getFirst())
         }
 
-        when (body) {
-            is RawBody -> {
-                contentHar.put("encoding", "base64")
-                contentHar.put("text", Base64.getEncoder().encodeToString(body.bytes))
-            }
-            is StringBody -> contentHar.put("text", body.data)
-            is JsonBody -> contentHar.put("text", body.json)
+        if (body is EmptyBody) {
+            har["bodySize"] = 0
+        } else {
+            val outputStream = ByteArrayOutputStream()
+            body.writer.write(outputStream)
+
+            val bytes = outputStream.toByteArray()
+
+            contentHar["size"] = bytes.size
+            contentHar["encoding"] = "base64"
+            contentHar["text"] = Base64.getEncoder().encodeToString(bytes)
         }
 
         har.put("content", contentHar)

@@ -25,27 +25,36 @@
 package org.authlab.http
 
 import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.EmptyBody
-import org.authlab.http.bodies.FormBody
-import org.authlab.http.bodies.JsonBody
-import org.authlab.http.bodies.RawBody
-import org.authlab.http.bodies.StringBody
 import org.authlab.http.bodies.emptyBody
 import org.authlab.util.loggerFor
 import org.authlab.io.readLine
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PushbackInputStream
 import java.util.Base64
 
-class Request(val requestLine: RequestLine, val headers: Headers = Headers(), val body: Body = emptyBody()) {
+class Request(val requestLine: RequestLine, val headers: Headers = Headers(), val body: Body<*> = emptyBody()) {
     companion object {
         private val _logger = loggerFor<Request>()
 
-        fun fromInputStream(inputStream: InputStream, beforeBody: (Request) -> Unit = {}): Request {
+        fun <T> fromInputStream(inputStream: InputStream, bodyReader: BodyReader<T>, beforeBody: (Request) -> Unit = {}): Request {
+            val request = fromInputStreamWithoutBody(inputStream)
+
+            beforeBody(request)
+
+            val body = bodyReader.read(inputStream, request.headers).getBody()
+
+            return request.withBody(body)
+        }
+
+        fun fromInputStreamWithoutBody(inputStream: InputStream): Request {
             _logger.debug("Reading request from input stream")
 
-            val pushbackInputStream = PushbackInputStream(inputStream)
+            val pushbackInputStream = inputStream as? PushbackInputStream ?: PushbackInputStream(inputStream)
 
             var line: String?
             var request: Request? = null
@@ -69,16 +78,7 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
 
             } while(line != null && !line.isEmpty())
 
-            request ?: throw IllegalStateException("Request could not be read from input stream")
-
-            if (line != null) {
-                request = request.withBody(Body.fromInputStream(pushbackInputStream, request.headers,
-                        { beforeBody(request!!) }))
-            }
-
-            _logger.info("Request read from input stream: {}", request.requestLine)
-
-            return request
+            return request ?: throw IllegalStateException("Request could not be read from input stream")
         }
     }
 
@@ -113,13 +113,19 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
         return Request(requestLine, headers.withoutHeaders(name), body)
     }
 
-    fun withBody(body: Body): Request {
+    fun withBody(body: Body<*>): Request {
         return Request(requestLine, headers, body)
     }
 
     fun write(outputStream: OutputStream) {
+        write(outputStream, body.writer)
+    }
+
+    fun write(outputStream: OutputStream, bodyWriter: BodyWriter) {
+        val request = withHeaders(headers.withReplacedHeaders(bodyWriter.getHeaders()))
+
         _logger.debug("Writing  request to output stream")
-        _logger.trace("Request: $this")
+        _logger.trace("Request: $request")
 
         val writer = outputStream.writer()
 
@@ -130,7 +136,7 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
         writer.write("\r\n")
         writer.flush()
 
-        body.write(outputStream)
+        bodyWriter.write(outputStream)
 
         _logger.info("Request written to output stream: {}", requestLine)
     }
@@ -145,11 +151,11 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
     override fun toString(): String {
         val sb = StringBuilder()
         toLines().forEach { line -> sb.appendln(line) }
-        when (body) {
-            is FormBody -> sb.appendln(body.toString())
-            is JsonBody -> sb.appendln(body.toString())
-            !is EmptyBody -> sb.appendln().append("Body size: ").append(body.size)
-        }
+//        when (body) {
+//            is FormBody -> sb.appendln(body.toString())
+//            is JsonBody -> sb.appendln(body.toString())
+//            !is EmptyBody -> sb.appendln().append("Body size: ").append(body.size)
+//        }
         return sb.toString()
     }
 
@@ -164,41 +170,56 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
                 "cookies" to Cookies.fromRequestHeaders(headers).toHar(),
                 "headers" to headers.toHar(),
                 "queryString" to requestLine.location.query.toHar(),
-                "headersSize" to -1,
-                "bodySize" to body.size)
+                "headersSize" to -1)
 
-        if (body.size > 0) {
-            val postDataHar = mutableMapOf<String, Any>("size" to body.size)
-            headers.getHeader("Content-Type")?.also {
-                postDataHar.put("mimeType", it.getFirst())
-            }
+        if (body is EmptyBody) {
+            har["bodySize"] = 0
+        } else {
+            val postDataHar = mutableMapOf<String, Any>()
 
-            when (body) {
-                is RawBody -> {
-                    postDataHar.put("encoding", "base64")
-                    postDataHar.put("text", Base64.getEncoder().encodeToString(body.bytes))
-                    postDataHar.put("params", mapOf<String, Any>())
-                }
-                is StringBody -> {
-                    postDataHar.put("text", body.data)
-                    postDataHar.put("params", mapOf<String, Any>())
-                }
-                is JsonBody -> {
-                    postDataHar.put("text", body.json)
-                    postDataHar.put("params", mapOf<String, Any>())
-                }
-                is FormBody -> {
-                    postDataHar.put("text", body.toString())
-                    postDataHar.put("params", body.parameters.toHar())
-                }
+            val outputStream = ByteArrayOutputStream()
+            body.writer.write(outputStream)
 
-            // TODO: include form parameters, if present
-            }
+            val bytes = outputStream.toByteArray()
 
-            har.put("postData", postDataHar)
-
-            // TODO: include form parameters, if present
+            postDataHar["size"] = bytes.size
+            postDataHar["encoding"] = "base64"
+            postDataHar["text"] = Base64.getEncoder().encodeToString(bytes)
+            postDataHar["params"] = mapOf<String, Any>()
         }
+
+//        if (body.size > 0) {
+//            val postDataHar = mutableMapOf<String, Any>("size" to body.size)
+//            headers.getHeader("Content-Type")?.also {
+//                postDataHar.put("mimeType", it.getFirst())
+//            }
+//
+//            when (body) {
+//                is RawBody -> {
+//                    postDataHar.put("encoding", "base64")
+//                    postDataHar.put("text", Base64.getEncoder().encodeToString(body.bytes))
+//                    postDataHar.put("params", mapOf<String, Any>())
+//                }
+//                is StringBody -> {
+//                    postDataHar.put("text", body.data)
+//                    postDataHar.put("params", mapOf<String, Any>())
+//                }
+//                is JsonBody -> {
+//                    postDataHar.put("text", body.json)
+//                    postDataHar.put("params", mapOf<String, Any>())
+//                }
+//                is FormBody -> {
+//                    postDataHar.put("text", body.toString())
+//                    postDataHar.put("params", body.parameters.toHar())
+//                }
+//
+//            // TODO: include form parameters, if present
+//            }
+//
+//            har.put("postData", postDataHar)
+//
+//            // TODO: include form parameters, if present
+//        }
 
         return har
     }

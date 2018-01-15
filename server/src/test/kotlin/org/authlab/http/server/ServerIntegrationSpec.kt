@@ -28,6 +28,8 @@ import io.kotlintest.matchers.shouldBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.crypto.setupDefaultSslContext
 import org.authlab.http.bodies.StringBody
+import org.authlab.http.bodies.StringBodyReader
+import org.authlab.http.bodies.StringBodyWriter
 import org.authlab.http.client.buildClient
 import org.authlab.util.randomPort
 
@@ -67,25 +69,23 @@ class ServerIntegrationSpec : StringSpec() {
 
                 handle("/foo") {
                     status { 200 to "OK" }
-                    body { StringBody("bar") }
+                    body { StringBodyWriter("bar") }
                 }
             }.also { it.start() }
 
             server.use {
-                val badResponse = buildClient("localhost:$serverPort")
+                buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().get()
-                }
-
-                badResponse.responseLine.statusCode shouldBe 404
-
-                val okResponse = buildClient("localhost:$serverPort")
-                        .use { client ->
-                            client.request().get("/foo")
+                            val response = client.request().get()
+                            response.responseLine.statusCode shouldBe 404
                         }
 
-                okResponse.responseLine.statusCode shouldBe 200
-                (okResponse.body as StringBody).data shouldBe "bar"
+                buildClient("localhost:$serverPort")
+                        .use { client ->
+                            val response = client.request().get("/foo")
+                            response.responseLine.statusCode shouldBe 200
+                            response.getBody(StringBodyReader()).data shouldBe "bar"
+                        }
             }
         }
 
@@ -100,38 +100,35 @@ class ServerIntegrationSpec : StringSpec() {
 
                 handle("/do/*/mi") {
                     status { 200 to "OK" }
-                    body { StringBody("/do/*/mi") }
+                    body { StringBodyWriter("/do/*/mi") }
                 }
 
                 handle("/do/*") {
                     status { 200 to "OK" }
-                    body { StringBody("/do/*") }
+                    body { StringBodyWriter("/do/*") }
                 }
             }.also { it.start() }
 
             server.use {
-                val badResponse = buildClient("localhost:$serverPort")
+                buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().get()
+                            val badResponse = client.request().get()
+                            badResponse.responseLine.statusCode shouldBe 404
                         }
 
-                badResponse.responseLine.statusCode shouldBe 404
-
-                var okResponse = buildClient("localhost:$serverPort")
+                buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().get("/do/re")
+                            val okResponse = client.request().get("/do/re")
+                            okResponse.responseLine.statusCode shouldBe 200
+                            okResponse.getBody(StringBodyReader()).data shouldBe "/do/*"
                         }
 
-                okResponse.responseLine.statusCode shouldBe 200
-                (okResponse.body as StringBody).data shouldBe "/do/*"
-
-                okResponse = buildClient("localhost:$serverPort")
+                buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().get("/do/re/mi")
+                            val okResponse = client.request().get("/do/re/mi")
+                            okResponse.responseLine.statusCode shouldBe 200
+                            okResponse.getBody(StringBodyReader()).data shouldBe "/do/*/mi"
                         }
-
-                okResponse.responseLine.statusCode shouldBe 200
-                (okResponse.body as StringBody).data shouldBe "/do/*/mi"
             }
         }
 
@@ -148,19 +145,18 @@ class ServerIntegrationSpec : StringSpec() {
                     val body = request.body as StringBody
 
                     status { 200 to "OK" }
-                    body { StringBody(body.data.toUpperCase()) }
+                    body { StringBodyWriter(body.data.toUpperCase()) }
                 }
             }.also { it.start() }
 
-            val response = server.use {
+            server.use {
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().post(StringBody("lorem ipsum ..."), "/foo")
+                            val response = client.request().post(StringBodyWriter("lorem ipsum ..."), "/foo")
+                            response.responseLine.statusCode shouldBe 200
+                            response.getBody(StringBodyReader()).data shouldBe "LOREM IPSUM ..."
                         }
             }
-
-            response.responseLine.statusCode shouldBe 200
-            (response.body as StringBody).data shouldBe "LOREM IPSUM ..."
         }
 
         "A server can be encrypted" {
@@ -175,7 +171,7 @@ class ServerIntegrationSpec : StringSpec() {
 
                 handle("/foo") {
                     status { 200 to "OK" }
-                    body { StringBody("bar") }
+                    body { StringBodyWriter("bar") }
                 }
             }.also { it.start() }
 
@@ -186,7 +182,7 @@ class ServerIntegrationSpec : StringSpec() {
                         }
 
                 response.responseLine.statusCode shouldBe 200
-                (response.body as StringBody).data shouldBe "bar"
+                response.getBody(StringBodyReader()).data shouldBe "bar"
             }
         }
     }

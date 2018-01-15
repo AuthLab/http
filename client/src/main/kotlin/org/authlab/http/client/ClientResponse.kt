@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2018 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -22,29 +22,39 @@
  * SOFTWARE.
  */
 
-package org.authlab.http.server
+package org.authlab.http.client
 
-import io.kotlintest.matchers.shouldBe
-import io.kotlintest.specs.StringSpec
-import org.authlab.http.bodies.StringBodyWriter
+import org.authlab.http.Headers
+import org.authlab.http.Response
+import org.authlab.http.ResponseLine
+import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.BodyReader
 
-class ServerResponseBuilderSpec : StringSpec() {
-    init {
-        "The builder can produce the expected response" {
-            val serverResponse = ServerResponseBuilder {
-                status { 200 to "OK" }
-                header { "foo" to "bar" }
-                body { StringBodyWriter("lorem ipsum ...") }
-            }.build()
+class ClientResponse internal constructor(private val client: Client,
+                                          private val internalResponse: Response) {
+    val responseLine: ResponseLine
+        get() = internalResponse.responseLine
 
-            serverResponse.statusCode shouldBe 200
-            serverResponse.contentType shouldBe "text/plain"
-            serverResponse.contentLength shouldBe 15
+    val headers: Headers
+        get() = internalResponse.headers
 
-            serverResponse.internalResponse.run {
-                headers.getHeader("Content-Type")?.values?.size shouldBe 1
-                headers.getHeader("Content-Length")?.values?.size shouldBe 1
-            }
-        }
+    val statusCode: Int
+        get() = internalResponse.responseLine.statusCode
+
+    val contentType: String?
+        get() = internalResponse.headers
+                .getHeader("Content-Type")?.getFirst()
+
+    val contentLength: Int
+        get() = internalResponse.headers
+                .getHeader("Content-Length")?.getFirstAsInt() ?: 0
+
+    fun toHar() = internalResponse.toHar()
+
+    fun getBody(): Body<*> = internalResponse.body
+
+    fun <T> getBody(bodyReader: BodyReader<T>): Body<T> {
+        return bodyReader.read(client.socket.inputStream, internalResponse.headers)
+                .getBody()
     }
 }

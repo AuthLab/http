@@ -27,6 +27,7 @@ package org.authlab.http.server
 import org.authlab.http.Request
 import org.authlab.http.Response
 import org.authlab.http.ResponseLine
+import org.authlab.http.bodies.ByteBodyReader
 import org.authlab.util.loggerFor
 import java.io.Closeable
 import java.net.Socket
@@ -71,19 +72,20 @@ class Server(private val listeners: List<ServerListener>,
             _logger.trace("Handling connection")
 
             try {
-                val request = Request.fromInputStream(socket.inputStream)
+                val request = Request.fromInputStream(socket.inputStream, ByteBodyReader())
 
                 val handler = handlers.firstOrNull {
                     it.entryPointPattern.matcher(request.requestLine.location.safePath).matches()
                 }
 
-                val response = if (handler != null) {
-                    handler.onRequest(ServerRequest(request)).build().internalResponse
+                if (handler != null) {
+                    val serverResponse = handler.onRequest(ServerRequest(request)).build()
+                    serverResponse.internalResponse
+                            .write(socket.outputStream, serverResponse.bodyWriter)
                 } else {
                     Response(ResponseLine(404, "Not Found"))
+                            .write(socket.outputStream)
                 }
-
-                response.write(socket.outputStream)
             } catch (e: Exception) {
                 _logger.warn("Error processing request", e)
 

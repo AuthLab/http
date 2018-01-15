@@ -24,8 +24,8 @@
 
 package org.authlab.http.client
 
-import org.authlab.http.bodies.Body
-import org.authlab.http.Response
+import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.BodyWriter
 
 interface RequestBuilder {
     var path: String
@@ -48,10 +48,10 @@ interface RequestBuilder {
         header(init())
     }
 
-    fun get(path: String? = null): Response
-    fun post(body: Body, path: String? = null): Response
-    fun put(body: Body, path: String? = null): Response
-    fun delete(path: String? = null): Response
-    fun patch(body: Body, path: String? = null): Response
-    fun execute(method: String, body: Body, path: String? = null): Response
+    fun get(path: String? = null): ClientResponse
+    fun post(bodyWriter: BodyWriter, path: String? = null): ClientResponse
+    fun put(bodyWriter: BodyWriter, path: String? = null): ClientResponse
+    fun delete(path: String? = null): ClientResponse
+    fun patch(bodyWriter: BodyWriter, path: String? = null): ClientResponse
+    fun execute(method: String, bodyWriter: BodyWriter, path: String? = null): ClientResponse
 }

@@ -27,9 +27,9 @@ package org.authlab.http.client
 import io.kotlintest.matchers.shouldBe
 import io.kotlintest.matchers.shouldNotBe
 import io.kotlintest.specs.StringSpec
-import org.authlab.http.Response
-import org.authlab.http.bodies.JsonBody
-import org.authlab.http.bodies.StringBody
+import org.authlab.http.bodies.JsonBodyReader
+import org.authlab.http.bodies.SerializedJsonBody
+import org.authlab.http.bodies.StringBodyWriter
 import org.authlab.http.echo.EchoServerBuilder
 import org.authlab.util.randomPort
 
@@ -149,7 +149,7 @@ class ClientIntegrationSpec : StringSpec() {
         "it should be possible to make a simple POST request" {
             val response = buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request().post(StringBody("hello"))
+                        client.request().post(StringBodyWriter("hello"))
                     }
 
             response.responseLine.statusCode shouldBe 200
@@ -282,12 +282,12 @@ class ClientIntegrationSpec : StringSpec() {
     private fun getHeaders(json: Map<String, Any>)
             = (json["headers"] as List<*>).filterIsInstance<Map<String, String>>()
 
-    private fun getJson(response: Response): Map<String, Any> {
+    private fun getJson(response: ClientResponse): Map<String, String> {
         response.headers.getHeader("Content-Type")!!.getFirst() shouldBe "application/json"
 
-        val jsonBody = response.body as JsonBody
-        println(jsonBody.json)
+        val jsonBody = response.getBody(JsonBodyReader()) as SerializedJsonBody
+        println(jsonBody.data)
 
-        return response.asJson()
+        return jsonBody.getTypedValue()
     }
 }
