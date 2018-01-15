@@ -27,15 +27,15 @@ package org.authlab.http.bodies
 import java.io.InputStream
 import java.nio.ByteBuffer
 
-class StreamBody(inputStream: InputStream) : Body<InputStream>(inputStream) {
+class StreamBody(val inputStream: InputStream) : Body {
     override val writer: BodyWriter
-        get() = StreamBodyWriter(data)
+        get() = StreamBodyWriter(inputStream)
 
 }
 
 class StreamBodyWriter(val inputStream: InputStream,
                        override val contenteType: String = "application/octet-stream",
-                       override val contenteEncoding: String? = null) : BodyWriter() {
+                       override val contenteEncoding: String? = null) : AbstractBodyWriter() {
     override val contentLength: Int?
         get() = null
 
@@ -53,46 +53,3 @@ class StreamBodyWriter(val inputStream: InputStream,
         return byte > 0
     }
 }
-
-//class StreamBody(val inputStream: InputStream, contentType: String = "application/octet-stream") :
-//        Body(contentType, null, "chunked") {
-//    companion object {
-//        val _logger = loggerFor<StringBody>()
-//    }
-//
-//    override fun isStreaming(): Boolean
-//            = true
-//
-//    override fun calculateSize(): Int
-//            = 0
-//
-//    override fun doWrite(outputStream: OutputStream) {
-//        val buffer = ByteArray(1024)
-//
-//        inputStream.use { inputStream ->
-//            var bytesRead: Int
-//
-//            do {
-//                bytesRead = inputStream.read(buffer)
-//
-//                if (bytesRead > 0) {
-//                    writeChunkHeader(bytesRead, outputStream)
-//
-//                    outputStream.write(buffer, 0, bytesRead)
-//                    outputStream.write("\r\n".toByteArray())
-//                }
-//            } while (bytesRead > 0)
-//
-//            writeChunkHeader(0, outputStream)
-//        }
-//    }
-//
-//    private fun writeChunkHeader(size: Int, outputStream: OutputStream) {
-//        val chunkHeader = size.toString(16)
-//
-//        _logger.trace("Writing chunk header: $chunkHeader")
-//
-//        outputStream.write(chunkHeader.toByteArray())
-//        outputStream.write("\r\n".toByteArray())
-//    }
-//}

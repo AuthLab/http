@@ -29,19 +29,19 @@ import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.EmptyBody
 import org.authlab.http.bodies.emptyBody
-import org.authlab.util.loggerFor
 import org.authlab.io.readLine
+import org.authlab.util.loggerFor
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PushbackInputStream
 import java.util.Base64
 
-open class Response(val responseLine: ResponseLine, val headers: Headers = Headers(), val body: Body<*> = emptyBody()) {
+open class Response(val responseLine: ResponseLine, val headers: Headers = Headers(), val body: Body = emptyBody()) {
     companion object {
         private val _logger = loggerFor<Response>()
 
-        fun <T> fromInputStream(inputStream: InputStream, bodyReader: BodyReader<T>): Response {
+        fun fromInputStream(inputStream: InputStream, bodyReader: BodyReader<*>): Response {
             val response = fromInputStreamWithoutBody(inputStream)
 
             val body = bodyReader.read(inputStream, response.headers).getBody()
@@ -78,14 +78,6 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
             } while(line != null && !line.isEmpty())
 
             return response ?: throw IllegalStateException("Response could not be read from input stream")
-
-//            if (line != null) {
-//                response = response.withBody(Body.fromInputStream(pushbackInputStream, response.headers))
-//            }
-//
-//            _logger.info("Response read from input stream: {}", response.responseLine)
-//
-//            return response
         }
     }
 
@@ -101,7 +93,7 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
         return Response(responseLine, headers.withHeader(header), body)
     }
 
-    fun withBody(body: Body<*>): Response {
+    fun withBody(body: Body): Response {
         return Response(responseLine, headers, body)
     }
 
@@ -110,10 +102,8 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
     }
 
     fun write(outputStream: OutputStream, bodyWriter: BodyWriter) {
-        val response = withHeaders(headers.withReplacedHeaders(bodyWriter.getHeaders()))
-
         _logger.debug("Writing response to output stream")
-        _logger.trace("Response: $response")
+        _logger.trace("Response: $this")
 
         val writer = outputStream.writer()
 
@@ -139,9 +129,6 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
     override fun toString(): String {
         val sb = StringBuilder()
         toLines().forEach { line -> sb.appendln(line) }
-//        if (body !is EmptyBody) {
-//            sb.appendln().append("Body size: ").append(body.size)
-//        }
         return sb.toString()
     }
 
@@ -171,6 +158,7 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
             body.writer.write(outputStream)
 
             val bytes = outputStream.toByteArray()
+            har["bodySize"] = bytes.size
 
             contentHar["size"] = bytes.size
             contentHar["encoding"] = "base64"

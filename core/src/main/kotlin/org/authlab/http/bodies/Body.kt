@@ -24,6 +24,6 @@
 
 package org.authlab.http.bodies
 
-abstract class Body<out Data>(val data: Data) {
-    abstract val writer: BodyWriter
+interface Body {
+    val writer: BodyWriter
 }

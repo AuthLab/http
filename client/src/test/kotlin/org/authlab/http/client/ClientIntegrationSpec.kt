@@ -58,14 +58,10 @@ class ClientIntegrationSpec : StringSpec() {
 
     init {
         "it should be possible to make a simple GET request" {
-            val response = buildClient("http://localhost:$_serverPort")
+            val json = buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request().get()
+                        client.request().getJson<Map<String, Any>>()
                     }
-
-            response.responseLine.statusCode shouldBe 200
-
-            val json = getJson(response)
 
             json["method"] shouldBe "GET"
             json["url"] shouldBe "http://localhost:$_serverPort/"
@@ -77,150 +73,170 @@ class ClientIntegrationSpec : StringSpec() {
             headers.find { it["name"] == "Host" }!!["value"] shouldBe "localhost:$_serverPort"
         }
 
-        "it should be possible to make a simple GET request with a path" {
-            val response = buildClient("http://localhost:$_serverPort")
+        "it should be possible to make a simple GET request with a delayed body processor" {
+            buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request().get("/some/place/nice")
+                        val response = client.request().get()
+
+                        response.statusCode shouldBe 200
+
+                        val json = getJson(response)
+
+                        json["method"] shouldBe "GET"
+                        json["url"] shouldBe "http://localhost:$_serverPort/"
+                        json["httpVersion"] shouldBe "HTTP/1.1"
+                        json["bodySize"] shouldBe 0.0
+
+                        val headers = getHeaders(json)
+
+                        headers.find { it["name"] == "Host" }!!["value"] shouldBe "localhost:$_serverPort"
                     }
+        }
 
-            response.responseLine.statusCode shouldBe 200
+        "it should be possible to make a simple GET request with a path" {
+            buildClient("http://localhost:$_serverPort")
+                    .use { client ->
+                        val response = client.request().get(path = "/some/place/nice")
 
-            val json = getJson(response)
+                        response.statusCode shouldBe 200
 
-            json["method"] shouldBe "GET"
-            json["url"] shouldBe "http://localhost:$_serverPort/some/place/nice"
-            json["httpVersion"] shouldBe "HTTP/1.1"
-            json["bodySize"] shouldBe 0.0
+                        val json = getJson(response)
+
+                        json["method"] shouldBe "GET"
+                        json["url"] shouldBe "http://localhost:$_serverPort/some/place/nice"
+                        json["httpVersion"] shouldBe "HTTP/1.1"
+                        json["bodySize"] shouldBe 0.0
+                    }
         }
 
         "it should be possible to make a simple GET request with query parameters" {
-            val response = buildClient("http://localhost:$_serverPort")
+            buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request {
+                        val response = client.request {
                             query { "foo" to "bar" }
                             query("13", "37")
                             query("42")
                         }.get()
+
+                        response.statusCode shouldBe 200
+
+                        val json = getJson(response)
+
+                        json["method"] shouldBe "GET"
+                        json["url"] shouldBe "http://localhost:$_serverPort/?foo=bar&13=37&42"
+                        json["httpVersion"] shouldBe "HTTP/1.1"
+                        json["bodySize"] shouldBe 0.0
+
+                        val query = getQuery(json)
+
+                        query.find { it["name"] == "foo" }!!["value"] shouldBe "bar"
+                        query.find { it["name"] == "13" }!!["value"] shouldBe "37"
+                        query.find { it["name"] == "42" }!!["value"] shouldBe ""
                     }
-
-            response.responseLine.statusCode shouldBe 200
-
-            val json = getJson(response)
-
-            json["method"] shouldBe "GET"
-            json["url"] shouldBe "http://localhost:$_serverPort/?foo=bar&13=37&42"
-            json["httpVersion"] shouldBe "HTTP/1.1"
-            json["bodySize"] shouldBe 0.0
-
-            val query = getQuery(json)
-
-            query.find { it["name"] == "foo" }!!["value"] shouldBe "bar"
-            query.find { it["name"] == "13" }!!["value"] shouldBe "37"
-            query.find { it["name"] == "42" }!!["value"] shouldBe ""
         }
 
         "it should be possible to make a simple GET request with headers" {
-            val response = buildClient("http://localhost:$_serverPort")
+            buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request {
+                        val response = client.request {
                             header { "foo" to "bar" }
                             header("13", "37")
                             header("foo", "also_bar")
                         }.get()
+
+                        response.statusCode shouldBe 200
+
+                        val json = getJson(response)
+
+                        json["method"] shouldBe "GET"
+                        json["url"] shouldBe "http://localhost:$_serverPort/"
+                        json["httpVersion"] shouldBe "HTTP/1.1"
+                        json["bodySize"] shouldBe 0.0
+
+                        val headers = getHeaders(json)
+
+                        headers.find { it["name"] == "Host" }!!["value"] shouldBe "localhost:$_serverPort"
+                        headers.find { it["name"] == "13" }!!["value"] shouldBe "37"
+                        headers.filter { it["name"] == "foo" }[0]["value"] shouldBe "bar"
+                        headers.filter { it["name"] == "foo" }[1]["value"] shouldBe "also_bar"
                     }
-
-            response.responseLine.statusCode shouldBe 200
-
-            val json = getJson(response)
-
-            json["method"] shouldBe "GET"
-            json["url"] shouldBe "http://localhost:$_serverPort/"
-            json["httpVersion"] shouldBe "HTTP/1.1"
-            json["bodySize"] shouldBe 0.0
-
-            val headers = getHeaders(json)
-
-            headers.find { it["name"] == "Host" }!!["value"] shouldBe "localhost:$_serverPort"
-            headers.find { it["name"] == "13" }!!["value"] shouldBe "37"
-            headers.filter { it["name"] == "foo" }[0]["value"] shouldBe "bar"
-            headers.filter { it["name"] == "foo" }[1]["value"] shouldBe "also_bar"
         }
 
         "it should be possible to make a simple POST request" {
-            val response = buildClient("http://localhost:$_serverPort")
+            buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request().post(StringBodyWriter("hello"))
+                        val response = client.request().post(StringBodyWriter("hello"))
+
+                        response.statusCode shouldBe 200
+
+                        val json = getJson(response)
+
+                        json["method"] shouldBe "POST"
+                        json["url"] shouldBe "http://localhost:$_serverPort/"
+                        json["httpVersion"] shouldBe "HTTP/1.1"
+                        json["bodySize"] shouldBe 5.0
+
+                        val headers = getHeaders(json)
+
+                        headers.find { it["name"] == "Content-Type" }!!["value"] shouldBe "text/plain"
+                        headers.find { it["name"] == "Content-Length" }!!["value"] shouldBe "5"
+
+                        val postData = getPostData(json)
+
+                        postData["size"] shouldBe 5.0
+                        postData["mimeType"] shouldBe "text/plain"
+                        postData["text"] shouldBe "hello"
                     }
-
-            response.responseLine.statusCode shouldBe 200
-
-            val json = getJson(response)
-
-            json["method"] shouldBe "POST"
-            json["url"] shouldBe "http://localhost:$_serverPort/"
-            json["httpVersion"] shouldBe "HTTP/1.1"
-            json["bodySize"] shouldBe 5.0
-
-            val headers = getHeaders(json)
-
-            headers.find { it["name"] == "Content-Type" }!!["value"] shouldBe "text/plain"
-            headers.find { it["name"] == "Content-Length" }!!["value"] shouldBe "5"
-
-            val postData = getPostData(json)
-
-            postData["size"] shouldBe 5.0
-            postData["mimeType"] shouldBe "text/plain"
-            postData["text"] shouldBe "hello"
         }
 
         "it should be possible to make a simple json POST request" {
-            val response = buildClient("http://localhost:$_serverPort")
+            buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request().postJson(mapOf("foo" to "bar"))
+                        val response = client.request().postJson(mapOf("foo" to "bar"))
+
+                        response.statusCode shouldBe 200
+
+                        val json = getJson(response)
+
+                        json["method"] shouldBe "POST"
+                        json["url"] shouldBe "http://localhost:$_serverPort/"
+                        json["httpVersion"] shouldBe "HTTP/1.1"
+
+                        val postData = getPostData(json)
+
+                        postData["size"] shouldBe 13.0
+                        postData["mimeType"] shouldBe "application/json"
+                        postData["text"] shouldBe "{\"foo\":\"bar\"}"
                     }
-
-            response.responseLine.statusCode shouldBe 200
-
-            val json = getJson(response)
-
-            json["method"] shouldBe "POST"
-            json["url"] shouldBe "http://localhost:$_serverPort/"
-            json["httpVersion"] shouldBe "HTTP/1.1"
-
-            val postData = getPostData(json)
-
-            postData["size"] shouldBe 13.0
-            postData["mimeType"] shouldBe "application/json"
-            postData["text"] shouldBe "{\"foo\":\"bar\"}"
         }
 
         "it should be possible to make a simple form POST request" {
-            val response = buildClient("http://localhost:$_serverPort")
+            buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request().postForm {
+                        val response = client.request().postForm {
                             parameter { "name" to "Foo" }
                             parameter { "surname" to "Bar" }
                         }
+
+                        response.statusCode shouldBe 200
+
+                        val json = getJson(response)
+
+                        json["method"] shouldBe "POST"
+                        json["url"] shouldBe "http://localhost:$_serverPort/"
+                        json["httpVersion"] shouldBe "HTTP/1.1"
+
+                        val postData = getPostData(json)
+
+                        postData["size"] shouldBe 20.0
+                        postData["mimeType"] shouldBe "application/x-www-form-urlencoded"
+
+                        val postParams = (postData["params"] as List<*>).filterIsInstance<Map<String, String>>()
+
+                        postParams.size shouldBe 2
+                        postParams.find { it["name"] == "name" }!!["value"] shouldBe "Foo"
+                        postParams.find { it["name"] == "surname" }!!["value"] shouldBe "Bar"
                     }
-
-            response.responseLine.statusCode shouldBe 200
-
-            val json = getJson(response)
-
-            json["method"] shouldBe "POST"
-            json["url"] shouldBe "http://localhost:$_serverPort/"
-            json["httpVersion"] shouldBe "HTTP/1.1"
-
-            val postData = getPostData(json)
-
-            postData["size"] shouldBe 20.0
-            postData["mimeType"] shouldBe "application/x-www-form-urlencoded"
-
-            val postParams = (postData["params"] as List<*>).filterIsInstance<Map<String, String>>()
-
-            postParams.size shouldBe 2
-            postParams.find { it["name"] == "name" }!!["value"] shouldBe "Foo"
-            postParams.find { it["name"] == "surname" }!!["value"] shouldBe "Bar"
         }
 
         "it should be possible to make a simple proxied GET request" {
@@ -229,7 +245,7 @@ class ClientIntegrationSpec : StringSpec() {
             }.use { client ->
                 val response = client.request().get()
 
-                response.responseLine.statusCode shouldBe 200
+                response.statusCode shouldBe 200
 
                 response.headers.getHeader("Content-Type")!!.getFirst() shouldBe "application/json"
 
@@ -253,7 +269,7 @@ class ClientIntegrationSpec : StringSpec() {
             }.use { client ->
                 val response = client.request().get()
 
-                response.responseLine.statusCode shouldBe 200
+                response.statusCode shouldBe 200
 
                 response.headers.getHeader("Content-Type")!!.getFirst() shouldBe "application/json"
 
@@ -282,11 +298,11 @@ class ClientIntegrationSpec : StringSpec() {
     private fun getHeaders(json: Map<String, Any>)
             = (json["headers"] as List<*>).filterIsInstance<Map<String, String>>()
 
-    private fun getJson(response: ClientResponse): Map<String, String> {
+    private fun getJson(response: ClientResponse<*>): Map<String, String> {
         response.headers.getHeader("Content-Type")!!.getFirst() shouldBe "application/json"
 
         val jsonBody = response.getBody(JsonBodyReader()) as SerializedJsonBody
-        println(jsonBody.data)
+        println(jsonBody.string)
 
         return jsonBody.getTypedValue()
     }

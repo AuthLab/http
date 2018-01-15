@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2018 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,28 +24,50 @@
 
 package org.authlab.http.bodies
 
+import org.authlab.http.Headers
+import java.io.InputStream
 import java.io.OutputStream
 
-class EmptyBody: Body {
+class DelayedBody(private val inputStream: InputStream, private val headers: Headers) : Body {
     override val writer: BodyWriter
-        get() = EmptyBodyWriter()
+        get() = DelayedBodyWriter()
+
+    fun <B : Body> read(bodyReader: BodyReader<B>) : B {
+        return bodyReader.read(inputStream, headers).getBody()
+    }
 }
 
-fun emptyBody() = EmptyBody()
-
-class EmptyBodyWriter : BodyWriter {
+class DelayedBodyWriter : BodyWriter {
     override val contentLength: Int?
-        get() = null
+        get() = throw UnsupportedOperationException()
 
     override val contenteType: String?
-        get() = null
+        get() = throw UnsupportedOperationException()
 
     override val contenteEncoding: String?
-        get() = null
+        get() = throw UnsupportedOperationException()
 
     override val transferEncoding: String?
-        get() = null
+        get() = throw UnsupportedOperationException()
 
     override fun write(outputStream: OutputStream) {
+        throw UnsupportedOperationException()
+    }
+}
+
+class DelayedBodyReader : BodyReader<Body> {
+    private var _inputStream: InputStream? = null
+    private var _headers: Headers? = null
+
+    override fun read(inputStream: InputStream, headers: Headers): BodyReader<Body> {
+        _inputStream = inputStream
+        _headers = headers
+
+        return this
+    }
+
+    override fun getBody(): Body {
+        return DelayedBody(_inputStream ?: throw IllegalStateException("No inputstream"),
+                _headers ?: throw IllegalStateException("No headers"))
     }
 }

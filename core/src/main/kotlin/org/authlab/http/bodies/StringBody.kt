@@ -26,21 +26,18 @@ package org.authlab.http.bodies
 
 import java.nio.charset.StandardCharsets
 
-open class StringBody(data: String) : Body<String>(data) {
+open class StringBody(val string: String) : Body {
     override val writer: BodyWriter
-        get() = StringBodyWriter(data)
+        get() = StringBodyWriter(string)
 }
 
-abstract class AbstractStringBodyReader<T> : AbstractByteBodyReader<T>() {
+abstract class AbstractStringBodyReader<out B : Body> : AbstractByteBodyReader<B>() {
     protected fun getStringValue() = String(getByteArrayValue(), StandardCharsets.UTF_8)
 }
 
-open class StringBodyReader : AbstractStringBodyReader<String>() {
-    override fun getValue()
-            = getStringValue()
-
-    override fun getBody(): Body<String>
-            = StringBody(getValue())
+open class StringBodyReader : AbstractStringBodyReader<StringBody>() {
+    override fun getBody()
+            = StringBody(getStringValue())
 }
 
 open class StringBodyWriter(string: String, contentType: String = "text/plain", contentEncoding: String? = null) :

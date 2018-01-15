@@ -28,12 +28,12 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import kotlin.math.min
 
-class ByteBody(data: ByteArray) : Body<ByteArray>(data) {
+class ByteBody(val bytes: ByteArray) : Body {
     override val writer: BodyWriter
-        get() = ByteBodyWriter(data)
+        get() = ByteBodyWriter(bytes)
 }
 
-abstract class AbstractByteBodyReader<out T> : BodyReader<T>() {
+abstract class AbstractByteBodyReader<out B : Body> : AbstractBodyReader<B>() {
     private var _buffer: ByteArrayOutputStream? = null
 
     override fun onReadStart(contentLength: Int?) {
@@ -55,17 +55,14 @@ abstract class AbstractByteBodyReader<out T> : BodyReader<T>() {
     }
 }
 
-class ByteBodyReader : AbstractByteBodyReader<ByteArray>() {
-    override fun getValue()
-            = getByteArrayValue()
-
+class ByteBodyReader : AbstractByteBodyReader<ByteBody>() {
     override fun getBody()
-            = ByteBody(getValue())
+            = ByteBody(getByteArrayValue())
 }
 
 open class ByteBodyWriter(val bytes: ByteArray,
                           override val contenteType: String = "application/octet-stream",
-                          override val contenteEncoding: String? = null) : BodyWriter() {
+                          override val contenteEncoding: String? = null) : AbstractBodyWriter() {
     private var _position = 0
 
     override val contentLength: Int?

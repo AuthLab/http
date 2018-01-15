@@ -30,18 +30,24 @@ import java.io.IOException
 import java.io.OutputStream
 import java.nio.ByteBuffer
 
-abstract class BodyWriter {
+interface BodyWriter {
+    val contentLength: Int?
+
+    val contenteType: String?
+
+    val contenteEncoding: String?
+
+    val transferEncoding: String?
+
+    fun write(outputStream: OutputStream)
+}
+
+abstract class AbstractBodyWriter : BodyWriter {
     companion object {
         private val _logger = loggerFor<BodyWriter>()
     }
 
-    abstract val contentLength: Int?
-
-    abstract val contenteType: String?
-
-    abstract val contenteEncoding: String?
-
-    val transferEncoding: String?
+    override val transferEncoding: String?
         get() = if (chunked) {
             "chunked"
         } else {
@@ -61,7 +67,7 @@ abstract class BodyWriter {
         }
     }
 
-    fun write(outputStream: OutputStream) {
+    override fun write(outputStream: OutputStream) {
         val chunkSize = contentLength ?: 1024
 
         val buffer = ByteBuffer.allocateDirect(chunkSize)

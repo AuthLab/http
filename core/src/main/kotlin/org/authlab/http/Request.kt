@@ -37,11 +37,11 @@ import java.io.OutputStream
 import java.io.PushbackInputStream
 import java.util.Base64
 
-class Request(val requestLine: RequestLine, val headers: Headers = Headers(), val body: Body<*> = emptyBody()) {
+class Request(val requestLine: RequestLine, val headers: Headers = Headers(), val body: Body = emptyBody()) {
     companion object {
         private val _logger = loggerFor<Request>()
 
-        fun <T> fromInputStream(inputStream: InputStream, bodyReader: BodyReader<T>, beforeBody: (Request) -> Unit = {}): Request {
+        fun fromInputStream(inputStream: InputStream, bodyReader: BodyReader<*>, beforeBody: (Request) -> Unit = {}): Request {
             val request = fromInputStreamWithoutBody(inputStream)
 
             beforeBody(request)
@@ -113,7 +113,7 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
         return Request(requestLine, headers.withoutHeaders(name), body)
     }
 
-    fun withBody(body: Body<*>): Request {
+    fun withBody(body: Body): Request {
         return Request(requestLine, headers, body)
     }
 
@@ -122,10 +122,8 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
     }
 
     fun write(outputStream: OutputStream, bodyWriter: BodyWriter) {
-        val request = withHeaders(headers.withReplacedHeaders(bodyWriter.getHeaders()))
-
         _logger.debug("Writing  request to output stream")
-        _logger.trace("Request: $request")
+        _logger.trace("Request: $this")
 
         val writer = outputStream.writer()
 
@@ -151,11 +149,6 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
     override fun toString(): String {
         val sb = StringBuilder()
         toLines().forEach { line -> sb.appendln(line) }
-//        when (body) {
-//            is FormBody -> sb.appendln(body.toString())
-//            is JsonBody -> sb.appendln(body.toString())
-//            !is EmptyBody -> sb.appendln().append("Body size: ").append(body.size)
-//        }
         return sb.toString()
     }
 
@@ -177,49 +170,23 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
         } else {
             val postDataHar = mutableMapOf<String, Any>()
 
+            headers.getHeader("Content-Type")?.also {
+                postDataHar.put("mimeType", it.getFirst())
+            }
+
             val outputStream = ByteArrayOutputStream()
             body.writer.write(outputStream)
 
             val bytes = outputStream.toByteArray()
+            har["bodySize"] = bytes.size
 
             postDataHar["size"] = bytes.size
             postDataHar["encoding"] = "base64"
             postDataHar["text"] = Base64.getEncoder().encodeToString(bytes)
-            postDataHar["params"] = mapOf<String, Any>()
-        }
+            postDataHar["params"] = listOf<Any>()
 
-//        if (body.size > 0) {
-//            val postDataHar = mutableMapOf<String, Any>("size" to body.size)
-//            headers.getHeader("Content-Type")?.also {
-//                postDataHar.put("mimeType", it.getFirst())
-//            }
-//
-//            when (body) {
-//                is RawBody -> {
-//                    postDataHar.put("encoding", "base64")
-//                    postDataHar.put("text", Base64.getEncoder().encodeToString(body.bytes))
-//                    postDataHar.put("params", mapOf<String, Any>())
-//                }
-//                is StringBody -> {
-//                    postDataHar.put("text", body.data)
-//                    postDataHar.put("params", mapOf<String, Any>())
-//                }
-//                is JsonBody -> {
-//                    postDataHar.put("text", body.json)
-//                    postDataHar.put("params", mapOf<String, Any>())
-//                }
-//                is FormBody -> {
-//                    postDataHar.put("text", body.toString())
-//                    postDataHar.put("params", body.parameters.toHar())
-//                }
-//
-//            // TODO: include form parameters, if present
-//            }
-//
-//            har.put("postData", postDataHar)
-//
-//            // TODO: include form parameters, if present
-//        }
+            har.put("postData", postDataHar)
+        }
 
         return har
     }

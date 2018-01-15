@@ -31,6 +31,8 @@ import org.authlab.http.QueryParameters
 import org.authlab.http.Request
 import org.authlab.http.RequestLine
 import org.authlab.http.Response
+import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.ByteBodyReader
 import org.authlab.http.bodies.EmptyBodyWriter
@@ -95,7 +97,7 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
         return RequestBuilderImpl(this, init)
     }
 
-    fun execute(request: Request, bodyWriter: BodyWriter = EmptyBodyWriter()): ClientResponse {
+    private fun execute(request: Request, bodyWriter: BodyWriter = EmptyBodyWriter()): Response {
         _logger.debug("Sending request: {}", request.requestLine)
         _logger.trace("Request: {}", request)
 
@@ -115,7 +117,7 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
         _logger.debug("Response received: {}", response.responseLine)
         _logger.trace("Response: {}", response)
 
-        return ClientResponse(this, response)
+        return response
     }
 
     override fun close() {
@@ -167,27 +169,7 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
             return this
         }
 
-        override fun get(path: String?): ClientResponse {
-            return execute("GET", EmptyBodyWriter(), path)
-        }
-
-        override fun post(bodyWriter: BodyWriter, path: String?): ClientResponse {
-            return execute("POST", bodyWriter, path)
-        }
-
-        override fun put(bodyWriter: BodyWriter, path: String?): ClientResponse {
-            return execute("PUT", bodyWriter, path)
-        }
-
-        override fun delete(path: String?): ClientResponse {
-            return execute("DELETE", EmptyBodyWriter(), path)
-        }
-
-        override fun patch(bodyWriter: BodyWriter, path: String?): ClientResponse {
-            return execute("PATCH", bodyWriter, path)
-        }
-
-        override fun execute(method: String, bodyWriter: BodyWriter, path: String?): ClientResponse {
+        override fun <B : Body> execute(method: String, bodyWriter: BodyWriter, bodyReader: BodyReader<B>, path: String?): ClientResponse<B> {
             if (path != null) {
                 this.path = path
             }
@@ -212,9 +194,14 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
                 }
             }
 
-            return client.execute(Request(
-                    RequestLine(method, Location(client.host, this.path, query)),
-                    headers))
+            val request = Request(RequestLine(method, Location(client.host, this.path, query)), headers)
+
+            val response = client.execute(request, bodyWriter)
+
+            val body = bodyReader.read(client.socket.inputStream, response.headers)
+                    .getBody()
+
+            return ClientResponse(client, response, body)
         }
     }
 }

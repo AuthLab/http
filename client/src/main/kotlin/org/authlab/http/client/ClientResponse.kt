@@ -29,9 +29,11 @@ import org.authlab.http.Response
 import org.authlab.http.ResponseLine
 import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.DelayedBody
 
-class ClientResponse internal constructor(private val client: Client,
-                                          private val internalResponse: Response) {
+class ClientResponse<out B : Body> internal constructor(private val client: Client,
+                                                        private val internalResponse: Response,
+                                                        private val body: B) {
     val responseLine: ResponseLine
         get() = internalResponse.responseLine
 
@@ -49,12 +51,19 @@ class ClientResponse internal constructor(private val client: Client,
         get() = internalResponse.headers
                 .getHeader("Content-Length")?.getFirstAsInt() ?: 0
 
-    fun toHar() = internalResponse.toHar()
+    fun toHar()
+            = internalResponse.toHar()
 
-    fun getBody(): Body<*> = internalResponse.body
+    fun getBody(): B
+            = body
 
-    fun <T> getBody(bodyReader: BodyReader<T>): Body<T> {
-        return bodyReader.read(client.socket.inputStream, internalResponse.headers)
-                .getBody()
+    inline fun <reified B : Body> getBody(bodyReader: BodyReader<B>): B {
+        val body = getBody()
+
+        return when (body) {
+            is B -> body
+            is DelayedBody -> body.read(bodyReader)
+            else -> throw IllegalStateException("Response body has already been read")
+        }
     }
 }

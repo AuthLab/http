@@ -31,12 +31,18 @@ import java.io.InputStream
 import java.io.PushbackInputStream
 import java.nio.ByteBuffer
 
-abstract class BodyReader<out T> {
+interface BodyReader<out B : Body> {
+    fun read(inputStream: InputStream, headers: Headers): BodyReader<B>
+
+    fun getBody(): B
+}
+
+abstract class AbstractBodyReader<out B : Body> : BodyReader<B> {
     companion object {
-        private val _logger = loggerFor<BodyReader<*>>()
+        private val _logger = loggerFor<BodyReader<Body>>()
     }
 
-    fun read(inputStream: InputStream, headers: Headers): BodyReader<T> {
+    override fun read(inputStream: InputStream, headers: Headers): BodyReader<B> {
         val pushbackInputStream = inputStream as? PushbackInputStream ?: PushbackInputStream(inputStream)
 
         val chunked = headers["Transfer-Encoding"]?.getFirst().equals("chunked", ignoreCase = true)
@@ -102,8 +108,4 @@ abstract class BodyReader<out T> {
     abstract fun onReadStart(contentLength: Int?)
 
     abstract fun onReadChunk(buffer: ByteBuffer)
-
-    abstract fun getValue(): T
-
-    abstract fun getBody(): Body<T>
 }

@@ -50,7 +50,7 @@ class ServerRequest internal constructor(internal val internalRequest: Request) 
     val headers: Headers
         get() = internalRequest.headers
 
-    val body: Body<*>
+    val body: Body
         get() = internalRequest.body
 
     val contentType: String?

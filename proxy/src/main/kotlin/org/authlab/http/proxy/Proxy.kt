@@ -145,7 +145,7 @@ open class Proxy(private val incomingSocket: Socket,
 
                 if (incomingResponse.responseLine.statusCode == 100) {
                     _logger.debug("Received 100 Continue; dropping response and preparing for next")
-                    incomingResponse = Response.fromInputStream(outgoingSocket.inputStream)
+                    incomingResponse = Response.fromInputStream(outgoingSocket.inputStream, ByteBodyReader())
                 }
 
                 val outgoingResponse = createResponseToProxy(incomingResponse)
