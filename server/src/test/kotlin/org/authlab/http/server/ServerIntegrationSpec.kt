@@ -84,7 +84,7 @@ class ServerIntegrationSpec : StringSpec() {
                         .use { client ->
                             val response = client.request().get("/foo")
                             response.responseLine.statusCode shouldBe 200
-                            response.getBody(StringBodyReader()).data shouldBe "bar"
+                            response.getBody(StringBodyReader()).string shouldBe "bar"
                         }
             }
         }
@@ -120,14 +120,14 @@ class ServerIntegrationSpec : StringSpec() {
                         .use { client ->
                             val okResponse = client.request().get("/do/re")
                             okResponse.responseLine.statusCode shouldBe 200
-                            okResponse.getBody(StringBodyReader()).data shouldBe "/do/*"
+                            okResponse.getBody(StringBodyReader()).string shouldBe "/do/*"
                         }
 
                 buildClient("localhost:$serverPort")
                         .use { client ->
                             val okResponse = client.request().get("/do/re/mi")
                             okResponse.responseLine.statusCode shouldBe 200
-                            okResponse.getBody(StringBodyReader()).data shouldBe "/do/*/mi"
+                            okResponse.getBody(StringBodyReader()).string shouldBe "/do/*/mi"
                         }
             }
         }
@@ -145,7 +145,7 @@ class ServerIntegrationSpec : StringSpec() {
                     val body = request.body as StringBody
 
                     status { 200 to "OK" }
-                    body { StringBodyWriter(body.data.toUpperCase()) }
+                    body { StringBodyWriter(body.string.toUpperCase()) }
                 }
             }.also { it.start() }
 
@@ -154,7 +154,7 @@ class ServerIntegrationSpec : StringSpec() {
                         .use { client ->
                             val response = client.request().post(StringBodyWriter("lorem ipsum ..."), "/foo")
                             response.responseLine.statusCode shouldBe 200
-                            response.getBody(StringBodyReader()).data shouldBe "LOREM IPSUM ..."
+                            response.getBody(StringBodyReader()).string shouldBe "LOREM IPSUM ..."
                         }
             }
         }
@@ -176,13 +176,15 @@ class ServerIntegrationSpec : StringSpec() {
             }.also { it.start() }
 
             server.use {
-                val response = buildClient("https://localhost:$serverPort")
+                buildClient("https://localhost:$serverPort")
                         .use { client ->
-                            client.request().get("/foo")
+                            val response = client.request().get("/foo")
+
+                            response.responseLine.statusCode shouldBe 200
+                            response.getBody(StringBodyReader()).string shouldBe "bar"
                         }
 
-                response.responseLine.statusCode shouldBe 200
-                response.getBody(StringBodyReader()).data shouldBe "bar"
+
             }
         }
     }
