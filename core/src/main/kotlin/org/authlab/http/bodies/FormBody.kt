@@ -29,6 +29,9 @@ import org.authlab.http.FormParameters
 class FormBody(val parameters: FormParameters) : Body {
     override val writer: BodyWriter
         get() = FormBodyWriter(parameters)
+
+    operator fun get(name: String): String?
+            = parameters.getParameter(name)?.firstOrNull()
 }
 
 class FormBodyReader : AbstractStringBodyReader<FormBody>() {

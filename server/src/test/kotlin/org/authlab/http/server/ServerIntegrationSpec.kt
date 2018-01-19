@@ -154,7 +154,7 @@ class ServerIntegrationSpec : StringSpec() {
                     val body = request.getBody()
 
                     status { 200 to "OK" }
-                    body { StringBodyWriter(body.parameters.toString()) }
+                    body { StringBodyWriter(body["foo"].toString()) }
                 }
 
                 handle("/delayed", DelayedBodyReader()) { request ->
@@ -182,7 +182,7 @@ class ServerIntegrationSpec : StringSpec() {
                             }
 
                             response.responseLine.statusCode shouldBe 200
-                            response.getBody(StringBodyReader()).string shouldBe "foo=bar&13=37"
+                            response.getBody(StringBodyReader()).string shouldBe "bar"
                         }
 
                 buildClient("localhost:$serverPort")

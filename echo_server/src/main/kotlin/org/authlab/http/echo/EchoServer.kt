@@ -24,7 +24,6 @@
 
 package org.authlab.http.echo
 
-import org.authlab.http.bodies.JsonBody
 import org.authlab.http.bodies.JsonBodyWriter
 import org.authlab.http.server.Server
 import org.authlab.http.server.ServerBuilder

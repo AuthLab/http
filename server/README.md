@@ -51,7 +51,27 @@ val server = buildServer {
 	
     handle("/foo") {
         status { 200 to "OK" }
-        body { StringBody("bar") }
+        body { StringBodyWriter("bar") }
+    }
+}
+```
+
+Registering a request handler for form posts:
+
+```kotlin
+val server = buildServer {
+    listen { 
+        host = "localhost"
+        port = 8080
+    }
+	
+    handle("/foo", FormBodyReader()) {
+    	val form = request.getBody()
+    	...
+    	val foo = form["foo"]
+    	...
+        status { 200 to "OK" }
+        body { StringBodyWriter("bar") }
     }
 }
 ```
@@ -67,12 +87,12 @@ val server = buildServer {
 	
     handle("/foo") {
         status { 200 to "OK" }
-        body { StringBody("bar") }
+        body { StringBodyWriter("bar") }
     }
 	
     default { request ->
         status { 404 to "Not Found" }
-        body { StringBody("Sorry, I could not find ${request.path}") }
+        body { StringBodyWriter("Sorry, I could not find ${request.path}") }
     }
 }
 ```
@@ -88,7 +108,7 @@ val server = buildServer {
 	
     default { request ->
         status { 200 to "OK" }
-        body { JsonBody(request.toHar()) }
+        body { JsonBodyWriter(request.toHar()) }
     }
 }
 ```
