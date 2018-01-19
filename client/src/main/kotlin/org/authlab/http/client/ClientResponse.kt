@@ -31,8 +31,7 @@ import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.DelayedBody
 
-class ClientResponse<out B : Body> internal constructor(private val client: Client,
-                                                        private val internalResponse: Response,
+class ClientResponse<out B : Body> internal constructor(private val internalResponse: Response,
                                                         private val body: B) {
     val responseLine: ResponseLine
         get() = internalResponse.responseLine

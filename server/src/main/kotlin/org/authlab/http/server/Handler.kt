@@ -24,29 +24,33 @@
 
 package org.authlab.http.server
 
+import org.authlab.http.Headers
+import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.BodyReader
+import java.io.InputStream
 import java.util.regex.Pattern
 
-typealias OnRequest = (ServerRequest) -> ServerResponseBuilder
+typealias OnRequest<B> = (ServerRequest<B>) -> ServerResponseBuilder
 
-class Handler(val entryPoint: String, val onRequest: OnRequest) {
+class Handler<B : Body>(val entryPoint: String, val onRequest: OnRequest<B>, val bodyReader: BodyReader<B>) {
     val entryPointPattern: Pattern by lazy {
         Pattern.compile(entryPoint.split("*").joinToString(".*") { Regex.escape(it) })
     }
+
+    fun readBody(inputStream: InputStream, headers: Headers): B
+            = bodyReader.read(inputStream, headers).getBody()
 }
 
-class HandlerBuilder private constructor() {
-    private var _entryPoint: String? = null
-    private var _onRequest: OnRequest? = null
+class HandlerBuilder<R : BodyReader<B>, B : Body> private constructor(val bodyReader: R) {
+    var entryPoint: String = "/"
 
-    constructor(init: HandlerBuilder.() -> Unit) : this() {
+    private var _onRequest: OnRequest<B>? = null
+
+    constructor(bodyReader: R, init: HandlerBuilder<R, B>.() -> Unit) : this(bodyReader) {
         init()
     }
 
-    fun entryPoint(init: () -> String) {
-        _entryPoint = init()
-    }
-
-    fun onRequest(init: ServerResponseBuilder.(ServerRequest) -> Unit) {
+    fun onRequest(init: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
         _onRequest = { request ->
             val serverResponseBuilder = ServerResponseBuilder()
             serverResponseBuilder.init(request)
@@ -54,10 +58,9 @@ class HandlerBuilder private constructor() {
         }
     }
 
-    fun build(): Handler {
-        val entryPoint = _entryPoint ?: throw IllegalStateException("entryPoint not defined on Handler")
+    fun build(): Handler<B> {
         val onRequest = _onRequest ?: throw IllegalStateException("onRequest not defined on Handler")
 
-        return Handler(entryPoint, onRequest)
+        return Handler(entryPoint, onRequest, bodyReader)
     }
 }

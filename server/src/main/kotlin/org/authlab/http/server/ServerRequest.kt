@@ -30,8 +30,11 @@ import org.authlab.http.Host
 import org.authlab.http.QueryParameters
 import org.authlab.http.Request
 import org.authlab.http.RequestLine
+import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.DelayedBody
 
-class ServerRequest internal constructor(internal val internalRequest: Request) {
+class ServerRequest<out B : Body> internal constructor(private val internalRequest: Request,
+                                                       private val body: B) {
     val requestLine: RequestLine
         get() = internalRequest.requestLine
 
@@ -50,9 +53,6 @@ class ServerRequest internal constructor(internal val internalRequest: Request) 
     val headers: Headers
         get() = internalRequest.headers
 
-    val body: Body
-        get() = internalRequest.body
-
     val contentType: String?
         get() = internalRequest.headers
                 .getHeader("Content-Type")?.getFirst()
@@ -62,4 +62,17 @@ class ServerRequest internal constructor(internal val internalRequest: Request) 
                 .getHeader("Content-Length")?.getFirstAsInt() ?: 0
 
     fun toHar() = internalRequest.toHar()
+
+    fun getBody(): B
+            = body
+
+    inline fun <reified B : Body> getBody(bodyReader: BodyReader<B>): B {
+        val body = getBody()
+
+        return when (body) {
+            is B -> body
+            is DelayedBody -> body.read(bodyReader)
+            else -> throw IllegalStateException("Request body has already been read")
+        }
+    }
 }

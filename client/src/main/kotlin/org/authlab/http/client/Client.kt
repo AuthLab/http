@@ -201,7 +201,7 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
             val body = bodyReader.read(client.socket.inputStream, response.headers)
                     .getBody()
 
-            return ClientResponse(client, response, body)
+            return ClientResponse(response, body)
         }
     }
 }
