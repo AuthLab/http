@@ -183,7 +183,6 @@ class ClientIntegrationSpec : StringSpec() {
 
                         val postData = getPostData(json)
 
-                        postData["size"] shouldBe 5.0
                         postData["mimeType"] shouldBe "text/plain"
                         postData["text"] shouldBe "hello"
                     }
@@ -204,7 +203,6 @@ class ClientIntegrationSpec : StringSpec() {
 
                         val postData = getPostData(json)
 
-                        postData["size"] shouldBe 13.0
                         postData["mimeType"] shouldBe "application/json"
                         postData["text"] shouldBe "{\"foo\":\"bar\"}"
                     }
@@ -225,10 +223,10 @@ class ClientIntegrationSpec : StringSpec() {
                         json["method"] shouldBe "POST"
                         json["url"] shouldBe "http://localhost:$_serverPort/"
                         json["httpVersion"] shouldBe "HTTP/1.1"
+                        json["bodySize"] shouldBe 20.0
 
                         val postData = getPostData(json)
 
-                        postData["size"] shouldBe 20.0
                         postData["mimeType"] shouldBe "application/x-www-form-urlencoded"
 
                         val postParams = (postData["params"] as List<*>).filterIsInstance<Map<String, String>>()

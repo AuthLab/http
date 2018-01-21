@@ -24,10 +24,8 @@
 
 package org.authlab.http.server
 
-import org.authlab.http.Headers
 import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
-import java.io.InputStream
 import java.util.regex.Pattern
 
 typealias OnRequest<B> = (ServerRequest<B>) -> ServerResponseBuilder
@@ -36,9 +34,6 @@ class Handler<B : Body>(val entryPoint: String, val onRequest: OnRequest<B>, val
     val entryPointPattern: Pattern by lazy {
         Pattern.compile(entryPoint.split("*").joinToString(".*") { Regex.escape(it) })
     }
-
-    fun readBody(inputStream: InputStream, headers: Headers): B
-            = bodyReader.read(inputStream, headers).getBody()
 }
 
 class HandlerBuilder<R : BodyReader<B>, B : Body> private constructor(val bodyReader: R) {
@@ -55,6 +50,12 @@ class HandlerBuilder<R : BodyReader<B>, B : Body> private constructor(val bodyRe
             val serverResponseBuilder = ServerResponseBuilder()
             serverResponseBuilder.init(request)
             serverResponseBuilder
+        }
+    }
+
+    fun onRequest(handle: (ServerRequest<B>) -> ServerResponseBuilder) {
+        _onRequest = { request ->
+            handle(request)
         }
     }
 

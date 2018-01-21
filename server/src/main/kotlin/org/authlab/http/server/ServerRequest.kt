@@ -33,35 +33,37 @@ import org.authlab.http.RequestLine
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.DelayedBody
 
-class ServerRequest<out B : Body> internal constructor(private val internalRequest: Request,
+class ServerRequest<out B : Body> internal constructor(request: Request,
                                                        private val body: B) {
+    val _request = request.withBody(body)
+
     val requestLine: RequestLine
-        get() = internalRequest.requestLine
+        get() = _request.requestLine
 
     val host: Host?
-        get() = internalRequest.requestLine.location.host
+        get() = _request.requestLine.location.host
 
     val path: String
-        get() = internalRequest.requestLine.location.safePath
+        get() = _request.requestLine.location.safePath
 
     val query: QueryParameters
-        get() = internalRequest.requestLine.location.query
+        get() = _request.requestLine.location.query
 
     val fragment: String?
-        get() = internalRequest.requestLine.location.fragment
+        get() = _request.requestLine.location.fragment
 
     val headers: Headers
-        get() = internalRequest.headers
+        get() = _request.headers
 
     val contentType: String?
-        get() = internalRequest.headers
+        get() = _request.headers
                 .getHeader("Content-Type")?.getFirst()
 
     val contentLength: Int
-        get() = internalRequest.headers
+        get() = _request.headers
                 .getHeader("Content-Length")?.getFirstAsInt() ?: 0
 
-    fun toHar() = internalRequest.toHar()
+    fun toHar() = _request.toHar()
 
     fun getBody(): B
             = body

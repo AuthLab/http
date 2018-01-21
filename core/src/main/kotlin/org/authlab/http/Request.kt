@@ -28,13 +28,18 @@ import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.EmptyBody
+import org.authlab.http.bodies.FormBody
+import org.authlab.http.bodies.FormBodyReader
+import org.authlab.http.bodies.StringBodyReader
 import org.authlab.http.bodies.emptyBody
 import org.authlab.util.loggerFor
 import org.authlab.io.readLine
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PushbackInputStream
+import java.nio.charset.StandardCharsets
 import java.util.Base64
 
 class Request(val requestLine: RequestLine, val headers: Headers = Headers(), val body: Body = emptyBody()) {
@@ -168,24 +173,37 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
         if (body is EmptyBody) {
             har["bodySize"] = 0
         } else {
-            val postDataHar = mutableMapOf<String, Any>()
-
-            headers.getHeader("Content-Type")?.also {
-                postDataHar.put("mimeType", it.getFirst())
-            }
-
             val outputStream = ByteArrayOutputStream()
             body.writer.write(outputStream)
+            val bodyBytes = outputStream.toByteArray()
 
-            val bytes = outputStream.toByteArray()
-            har["bodySize"] = bytes.size
+            har["bodySize"] = bodyBytes.size
 
-            postDataHar["size"] = bytes.size
-            postDataHar["encoding"] = "base64"
-            postDataHar["text"] = Base64.getEncoder().encodeToString(bytes)
-            postDataHar["params"] = listOf<Any>()
+            if (bodyBytes.isNotEmpty()) {
+                val postDataHar = mutableMapOf<String, Any>()
 
-            har.put("postData", postDataHar)
+                val contentType = headers.getHeader("Content-Type")?.getFirst() ?: "application/octet-stream"
+
+                postDataHar["mimeType"] = contentType
+
+                if (contentType.equals("application/octet-stream", ignoreCase = true)) {
+                    postDataHar["encoding"] = "base64"
+                    postDataHar["text"] = Base64.getEncoder().encodeToString(bodyBytes)
+                } else {
+                    postDataHar["text"] = bodyBytes.toString(StandardCharsets.UTF_8)
+                }
+
+                postDataHar["params"] = if (contentType.equals("application/x-www-form-urlencoded", ignoreCase = true)) {
+                    val formBody = body as? FormBody ?: FormBodyReader()
+                            .read(ByteArrayInputStream(bodyBytes), headers)
+                            .getBody()
+                    formBody.parameters.toHar()
+                } else {
+                    listOf<Any>()
+                }
+
+                har["postData"] = postDataHar
+            }
         }
 
         return har

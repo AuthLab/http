@@ -155,6 +155,16 @@ class ServerBuilder constructor() {
         _listenerBuilders.add(ServerListenerBuilder(init))
     }
 
+    fun <R : BodyReader<B>, B : Body> handleCallback(entryPoint: String, bodyReader: R, handle: (ServerRequest<B>) -> ServerResponseBuilder) {
+        _handlerBuilders.add(HandlerBuilder(bodyReader) {
+            onRequest(handle)
+        })
+    }
+
+    fun handleCallback(entryPoint: String, handle: (ServerRequest<StringBody>) -> ServerResponseBuilder) {
+        handleCallback(entryPoint, StringBodyReader(), handle)
+    }
+
     fun <R : BodyReader<B>, B : Body> handle(bodyReader: R, init: HandlerBuilder<R, B>.() -> Unit) {
         _handlerBuilders.add(HandlerBuilder(bodyReader, init))
     }

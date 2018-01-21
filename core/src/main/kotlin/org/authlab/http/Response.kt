@@ -35,6 +35,7 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PushbackInputStream
+import java.nio.charset.StandardCharsets
 import java.util.Base64
 
 open class Response(val responseLine: ResponseLine, val headers: Headers = Headers(), val body: Body = emptyBody()) {
@@ -156,16 +157,27 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
         } else {
             val outputStream = ByteArrayOutputStream()
             body.writer.write(outputStream)
+            val bodyBytes = outputStream.toByteArray()
 
-            val bytes = outputStream.toByteArray()
-            har["bodySize"] = bytes.size
+            har["bodySize"] = bodyBytes.size
 
-            contentHar["size"] = bytes.size
-            contentHar["encoding"] = "base64"
-            contentHar["text"] = Base64.getEncoder().encodeToString(bytes)
+            if (bodyBytes.isNotEmpty()) {
+                contentHar["size"] = bodyBytes.size
+
+                val contentType = headers.getHeader("Content-Type")?.getFirst() ?: "application/octet-stream"
+
+                contentHar["mimeType"] = contentType
+
+                if (contentType.equals("application/octet-stream", ignoreCase = true)) {
+                    contentHar["encoding"] = "base64"
+                    contentHar["text"] = Base64.getEncoder().encodeToString(bodyBytes)
+                } else {
+                    contentHar["text"] = bodyBytes.toString(StandardCharsets.UTF_8)
+                }
+
+                har["content"] = contentHar
+            }
         }
-
-        har.put("content", contentHar)
 
         return har
     }
