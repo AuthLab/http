@@ -34,12 +34,12 @@ class FormBody(val parameters: FormParameters) : Body {
             = parameters.getParameter(name)?.firstOrNull()
 }
 
-class FormBodyReader : AbstractStringBodyReader<FormBody>() {
+class FormBodyReader : AbstractTextBodyReader<FormBody>() {
     fun getParametersValue()
-            = FormParameters.fromString(getStringValue())
+            = FormParameters.fromString(getTextValue())
 
     override fun getBody() = FormBody(getParametersValue())
 }
 
 class FormBodyWriter(val data: FormParameters) :
-        StringBodyWriter(data.toString(), "application/x-www-form-urlencoded")
+        TextBodyWriter(data.toString(), "application/x-www-form-urlencoded")

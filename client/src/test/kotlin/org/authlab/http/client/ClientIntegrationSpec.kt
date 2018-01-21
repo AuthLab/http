@@ -28,7 +28,7 @@ import io.kotlintest.matchers.shouldBe
 import io.kotlintest.matchers.shouldNotBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.http.bodies.JsonBodyReader
-import org.authlab.http.bodies.StringBodyWriter
+import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.echo.EchoServerBuilder
 import org.authlab.util.randomPort
 
@@ -164,7 +164,7 @@ class ClientIntegrationSpec : StringSpec() {
         "it should be possible to make a simple POST request" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        val response = client.request().post(StringBodyWriter("hello"))
+                        val response = client.request().post(TextBodyWriter("hello"))
 
                         response.statusCode shouldBe 200
 

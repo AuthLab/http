@@ -29,8 +29,8 @@ import org.authlab.http.Response
 import org.authlab.http.ResponseLine
 import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
-import org.authlab.http.bodies.StringBody
-import org.authlab.http.bodies.StringBodyReader
+import org.authlab.http.bodies.TextBody
+import org.authlab.http.bodies.TextBodyReader
 import org.authlab.util.loggerFor
 import java.io.Closeable
 import java.io.InputStream
@@ -162,8 +162,8 @@ class ServerBuilder constructor() {
         })
     }
 
-    fun handleCallback(entryPoint: String, handle: (ServerRequest<StringBody>) -> ServerResponseBuilder) {
-        handleCallback(entryPoint, StringBodyReader(), handle)
+    fun handleCallback(entryPoint: String, handle: (ServerRequest<TextBody>) -> ServerResponseBuilder) {
+        handleCallback(entryPoint, TextBodyReader(), handle)
     }
 
     fun <R : BodyReader<B>, B : Body> handle(bodyReader: R, init: HandlerBuilder<R, B>.() -> Unit) {
@@ -178,8 +178,8 @@ class ServerBuilder constructor() {
         }
     }
 
-    fun handle(entryPoint: String, init: ServerResponseBuilder.(ServerRequest<StringBody>) -> Unit) {
-        handle(entryPoint, StringBodyReader(), init)
+    fun handle(entryPoint: String, init: ServerResponseBuilder.(ServerRequest<TextBody>) -> Unit) {
+        handle(entryPoint, TextBodyReader(), init)
     }
 
     fun <R : BodyReader<B>, B : Body> default(bodyReader: R, init: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
@@ -189,8 +189,8 @@ class ServerBuilder constructor() {
         }
     }
 
-    fun default(init: ServerResponseBuilder.(ServerRequest<StringBody>) -> Unit) {
-        default(StringBodyReader(), init)
+    fun default(init: ServerResponseBuilder.(ServerRequest<TextBody>) -> Unit) {
+        default(TextBodyReader(), init)
     }
 
     fun build(): Server {

@@ -32,6 +32,7 @@ import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.FormBodyWriter
 import org.authlab.http.bodies.JsonBodyReader
 import org.authlab.http.bodies.JsonBodyWriter
+import org.authlab.http.bodies.TextBodyReader
 import org.authlab.util.loggerFor
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -57,6 +58,10 @@ inline fun <reified T> ClientResponse<*>.asJson(): T {
     }
 
     return getBody(JsonBodyReader()).getTypedValue()
+}
+
+fun RequestBuilder.getText(path: String = "/"): String {
+    return get(TextBodyReader(), path).getBody().string
 }
 
 inline fun <reified T> RequestBuilder.getJson(path: String = "/"): T {

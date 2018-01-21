@@ -31,7 +31,7 @@ class JsonBody<out T>(val json: T) : Body {
         get() = JsonBodyWriter(json)
 }
 
-class SerializedJsonBody(json: String) : StringBody(json) {
+class SerializedJsonBody(json: String) : TextBody(json) {
     companion object {
         private val _gson = Gson()
     }
@@ -43,12 +43,12 @@ class SerializedJsonBody(json: String) : StringBody(json) {
             = _gson.fromJson(string, type)
 }
 
-class JsonBodyReader : AbstractStringBodyReader<SerializedJsonBody>() {
-    override fun getBody() = SerializedJsonBody(getStringValue())
+class JsonBodyReader : AbstractTextBodyReader<SerializedJsonBody>() {
+    override fun getBody() = SerializedJsonBody(getTextValue())
 }
 
 class JsonBodyWriter(val data: Any?) :
-        StringBodyWriter(_gson.toJson(data), "application/json") {
+        TextBodyWriter(_gson.toJson(data), "application/json") {
     companion object {
         private val _gson = Gson()
     }

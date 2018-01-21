@@ -30,8 +30,6 @@ import org.authlab.http.ResponseLine
 import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.DelayedBody
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 
 class ClientResponse<out B : Body> internal constructor(private val internalResponse: Response,
                                                         private val body: B) {

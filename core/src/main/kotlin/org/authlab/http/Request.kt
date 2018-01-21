@@ -30,7 +30,6 @@ import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.EmptyBody
 import org.authlab.http.bodies.FormBody
 import org.authlab.http.bodies.FormBodyReader
-import org.authlab.http.bodies.StringBodyReader
 import org.authlab.http.bodies.emptyBody
 import org.authlab.util.loggerFor
 import org.authlab.io.readLine

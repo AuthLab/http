@@ -26,8 +26,9 @@ package org.authlab.http.server
 
 import io.kotlintest.specs.StringSpec
 import org.authlab.http.bodies.StreamBodyWriter
-import org.authlab.http.bodies.StringBody
+import org.authlab.http.bodies.TextBody
 import org.authlab.http.client.buildClient
+import org.authlab.http.client.getText
 import org.authlab.util.randomPort
 import java.io.File
 import java.io.FileNotFoundException
@@ -52,15 +53,15 @@ class FileServerIntegrationSpec : StringSpec() {
             val response = server.use {
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().get()
+                            client.request().getText()
                         }
             }
 
-            println(response.toHar())
+            println(response)
         }
     }
 
-    private fun serveFile(request: ServerRequest<StringBody>): ServerResponseBuilder {
+    private fun serveFile(request: ServerRequest<TextBody>): ServerResponseBuilder {
         val path = request.requestLine.location.path
 
         val fileRoot = "www"
