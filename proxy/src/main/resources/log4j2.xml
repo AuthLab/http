@@ -24,11 +24,11 @@
         <Logger name="SSL" level="TRACE"/>
         <Logger name="org.authlab" level="DEBUG"/>
         <Logger name="org.authlab.crypto" level="TRACE"/>
-        <!--<Logger name="sorg.authlab.http" level="TRACE"/>-->
+        <!--<Logger name="org.authlab.http" level="TRACE"/>-->
 
         <Root level="INFO">
             <AppenderRef ref="Console"/>
-            <!--<AppenderRef ref="Audit"/>-->
+            <AppenderRef ref="Audit"/>
             <!--<AppenderRef ref="HAR"/>-->
         </Root>
     </Loggers>
