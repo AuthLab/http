@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2018 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -22,49 +22,38 @@
  * SOFTWARE.
  */
 
-package org.authlab.http.server
+package org.authlab.http.client
 
-import org.authlab.http.bodies.Body
 import org.authlab.http.Headers
-import org.authlab.http.Host
-import org.authlab.http.QueryParameters
-import org.authlab.http.Request
-import org.authlab.http.RequestLine
+import org.authlab.http.Response
+import org.authlab.http.ResponseLine
+import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.DelayedBody
-import org.authlab.http.client.convertBody
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 
-class ServerRequest<out B : Body> internal constructor(request: Request,
-                                                       private val body: B) {
-    val _request = request.withBody(body)
-
-    val requestLine: RequestLine
-        get() = _request.requestLine
-
-    val host: Host?
-        get() = _request.requestLine.location.host
-
-    val path: String
-        get() = _request.requestLine.location.safePath
-
-    val query: QueryParameters
-        get() = _request.requestLine.location.query
-
-    val fragment: String?
-        get() = _request.requestLine.location.fragment
+class ClientResponse<out B : Body> internal constructor(private val internalResponse: Response,
+                                                        private val body: B) {
+    val responseLine: ResponseLine
+        get() = internalResponse.responseLine
 
     val headers: Headers
-        get() = _request.headers
+        get() = internalResponse.headers
+
+    val statusCode: Int
+        get() = internalResponse.responseLine.statusCode
 
     val contentType: String?
-        get() = _request.headers
+        get() = internalResponse.headers
                 .getHeader("Content-Type")?.getFirst()
 
     val contentLength: Int
-        get() = _request.headers
+        get() = internalResponse.headers
                 .getHeader("Content-Length")?.getFirstAsInt() ?: 0
 
-    fun toHar() = _request.toHar()
+    fun toHar()
+            = internalResponse.toHar()
 
     fun getBody(): B
             = body

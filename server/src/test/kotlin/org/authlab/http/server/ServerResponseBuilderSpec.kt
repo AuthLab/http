@@ -26,7 +26,7 @@ package org.authlab.http.server
 
 import io.kotlintest.matchers.shouldBe
 import io.kotlintest.specs.StringSpec
-import org.authlab.http.bodies.StringBody
+import org.authlab.http.bodies.StringBodyWriter
 
 class ServerResponseBuilderSpec : StringSpec() {
     init {
@@ -34,7 +34,7 @@ class ServerResponseBuilderSpec : StringSpec() {
             val serverResponse = ServerResponseBuilder {
                 status { 200 to "OK" }
                 header { "foo" to "bar" }
-                body { StringBody("lorem ipsum ...") }
+                body { StringBodyWriter("lorem ipsum ...") }
             }.build()
 
             serverResponse.statusCode shouldBe 200

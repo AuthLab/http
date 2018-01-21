@@ -27,15 +27,20 @@ package org.authlab.http.server
 import org.authlab.http.Request
 import org.authlab.http.Response
 import org.authlab.http.ResponseLine
+import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.StringBody
+import org.authlab.http.bodies.StringBodyReader
 import org.authlab.util.loggerFor
 import java.io.Closeable
+import java.io.InputStream
 import java.net.Socket
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 class Server(private val listeners: List<ServerListener>,
-             private val handlers: List<Handler> = emptyList(),
+             private val handlers: List<Handler<*>> = emptyList(),
              threadPoolSize: Int = 50) : Closeable {
     companion object {
         private val _logger = loggerFor<Server>()
@@ -71,28 +76,37 @@ class Server(private val listeners: List<ServerListener>,
             _logger.trace("Handling connection")
 
             try {
-                val request = Request.fromInputStream(socket.inputStream)
+                val request = Request.fromInputStreamWithoutBody(socket.inputStream)
 
                 val handler = handlers.firstOrNull {
                     it.entryPointPattern.matcher(request.requestLine.location.safePath).matches()
                 }
 
-                val response = if (handler != null) {
-                    handler.onRequest(ServerRequest(request)).build().internalResponse
+                if (handler != null) {
+                    val serverResponse = handle(handler, request, socket.inputStream)
+
+                    serverResponse.internalResponse
+                            .write(socket.outputStream, serverResponse.bodyWriter)
                 } else {
                     Response(ResponseLine(404, "Not Found"))
+                            .write(socket.outputStream)
                 }
-
-                response.write(socket.outputStream)
             } catch (e: Exception) {
                 _logger.warn("Error processing request", e)
 
                 Response(ResponseLine(500, "Server Error"))
                         .write(socket.outputStream)
             } finally {
+                _logger.debug("Closing socket")
                 socket.close()
             }
         })
+    }
+
+    private fun <B : Body> handle(handler: Handler<B>, request: Request, inputStream: InputStream): ServerResponse {
+        val body = handler.bodyReader.read(inputStream, request.headers).getBody()
+        val serverRequest = ServerRequest(request, body)
+        return handler.onRequest(serverRequest).build()
     }
 
     override fun close() {
@@ -128,9 +142,10 @@ fun buildServer(init: ServerBuilder.() -> Unit) = ServerBuilder(init).build()
 
 class ServerBuilder constructor() {
     var threadPoolSize: Int = 100
+
     private val _listenerBuilders = mutableListOf<ServerListenerBuilder>()
-    private val _handlerBuilders = mutableListOf<HandlerBuilder>()
-    private var _defaultHandlerBuilder: HandlerBuilder? = null
+    private val _handlerBuilders = mutableListOf<HandlerBuilder<*, *>>()
+    private var _defaultHandlerBuilder: HandlerBuilder<*, *>? = null
 
     constructor(init: ServerBuilder.() -> Unit) : this() {
         init()
@@ -140,23 +155,42 @@ class ServerBuilder constructor() {
         _listenerBuilders.add(ServerListenerBuilder(init))
     }
 
-    fun handle(init: HandlerBuilder.() -> Unit) {
-        _handlerBuilders.add(HandlerBuilder(init))
+    fun <R : BodyReader<B>, B : Body> handleCallback(entryPoint: String, bodyReader: R, handle: (ServerRequest<B>) -> ServerResponseBuilder) {
+        _handlerBuilders.add(HandlerBuilder(bodyReader) {
+            this.entryPoint = entryPoint
+            onRequest(handle)
+        })
     }
 
-    fun handle(entryPoint: String, init: ServerResponseBuilder.(ServerRequest) -> Unit) {
-        val handler = HandlerBuilder {
-            entryPoint { entryPoint }
-            onRequest(init)
-        }
-        _handlerBuilders.add(handler)
+    fun handleCallback(entryPoint: String, handle: (ServerRequest<StringBody>) -> ServerResponseBuilder) {
+        handleCallback(entryPoint, StringBodyReader(), handle)
     }
 
-    fun default(init: ServerResponseBuilder.(ServerRequest) -> Unit) {
-        _defaultHandlerBuilder = HandlerBuilder {
-            entryPoint { "*" }
+    fun <R : BodyReader<B>, B : Body> handle(bodyReader: R, init: HandlerBuilder<R, B>.() -> Unit) {
+        _handlerBuilders.add(HandlerBuilder(bodyReader, init))
+    }
+
+    fun <R : BodyReader<B>, B : Body> handle(entryPoint: String, bodyReader: R,
+                                             init: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
+        handle(bodyReader) {
+            this.entryPoint = entryPoint
             onRequest(init)
         }
+    }
+
+    fun handle(entryPoint: String, init: ServerResponseBuilder.(ServerRequest<StringBody>) -> Unit) {
+        handle(entryPoint, StringBodyReader(), init)
+    }
+
+    fun <R : BodyReader<B>, B : Body> default(bodyReader: R, init: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
+        _defaultHandlerBuilder = HandlerBuilder(bodyReader) {
+            entryPoint = "*"
+            onRequest(init)
+        }
+    }
+
+    fun default(init: ServerResponseBuilder.(ServerRequest<StringBody>) -> Unit) {
+        default(StringBodyReader(), init)
     }
 
     fun build(): Server {
@@ -167,7 +201,7 @@ class ServerBuilder constructor() {
             listeners.add(ServerListenerBuilder().build()) // Construct a default listener
         }
 
-        val handlers = _handlerBuilders.map(HandlerBuilder::build)
+        val handlers = _handlerBuilders.map(HandlerBuilder<*, *>::build)
                 .toMutableList()
 
         _defaultHandlerBuilder?.apply { handlers.add(build()) }

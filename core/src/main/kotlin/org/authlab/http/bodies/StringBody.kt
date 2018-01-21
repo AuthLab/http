@@ -24,29 +24,21 @@
 
 package org.authlab.http.bodies
 
-import java.io.BufferedWriter
-import java.io.OutputStream
-import java.io.OutputStreamWriter
 import java.nio.charset.StandardCharsets
 
-open class StringBody protected constructor(val data: String, contentType: String = "text/plain",
-                      originalBody: RawBody?) : Body(contentType, null, null, originalBody) {
-    constructor(data: String, contentType: String = "text/plain") : this(data, contentType, null)
-
-    companion object {
-        fun fromRawBody(rawBody: RawBody): StringBody {
-            val rawString = rawBody.bytes.toString(StandardCharsets.UTF_8)
-
-            return StringBody(rawString, originalBody = rawBody)
-        }
-    }
-
-    override fun calculateSize(): Int
-            =  data.length
-
-    override fun doWrite(outputStream: OutputStream) {
-        val writer = BufferedWriter(OutputStreamWriter(outputStream))
-        writer.write(data)
-        writer.flush()
-    }
+open class StringBody(val string: String) : Body {
+    override val writer: BodyWriter
+        get() = StringBodyWriter(string)
 }
+
+abstract class AbstractStringBodyReader<out B : Body> : AbstractByteBodyReader<B>() {
+    protected fun getStringValue() = String(getByteArrayValue(), StandardCharsets.UTF_8)
+}
+
+open class StringBodyReader : AbstractStringBodyReader<StringBody>() {
+    override fun getBody()
+            = StringBody(getStringValue())
+}
+
+open class StringBodyWriter(string: String, contentType: String = "text/plain", contentEncoding: String? = null) :
+        ByteBodyWriter(string.toByteArray(StandardCharsets.UTF_8), contentType, contentEncoding)

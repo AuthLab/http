@@ -24,7 +24,7 @@
 
 package org.authlab.http
 
-abstract class Parameters<T : Parameters<T>>(val parameters: Map<String, Parameter>) {
+abstract class Parameters<T : Parameters<T>>(protected val parameters: Map<String, Parameter>) {
     protected abstract fun newInstance(parameters: Map<String, Parameter>): T
 
     fun withParameter(name: String, value: String?): T {
@@ -60,7 +60,7 @@ abstract class Parameters<T : Parameters<T>>(val parameters: Map<String, Paramet
                     .takeIf { values -> !values.isEmpty() }
                     ?.let { values -> Parameter(name, values) }
         } else {
-            parameters[name.toUpperCase()]
+            parameters[name]
         }
     }
 

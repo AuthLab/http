@@ -24,49 +24,32 @@
 
 package org.authlab.http.bodies
 
-import org.authlab.util.loggerFor
 import java.io.InputStream
-import java.io.OutputStream
+import java.nio.ByteBuffer
 
-class StreamBody(val inputStream: InputStream, contentType: String = "application/octet-stream") :
-        Body(contentType, null, "chunked") {
-    companion object {
-        val _logger = loggerFor<StringBody>()
-    }
+class StreamBody(val inputStream: InputStream) : Body {
+    override val writer: BodyWriter
+        get() = StreamBodyWriter(inputStream)
 
-    override fun isStreaming(): Boolean
-            = true
+}
 
-    override fun calculateSize(): Int
-            = 0
+class StreamBodyWriter(val inputStream: InputStream,
+                       override val contenteType: String = "application/octet-stream",
+                       override val contenteEncoding: String? = null) : AbstractBodyWriter() {
+    override val contentLength: Int?
+        get() = null
 
-    override fun doWrite(outputStream: OutputStream) {
-        val buffer = ByteArray(1024)
+    override fun onWriteChunk(buffer: ByteBuffer): Boolean {
+        var byte = 0
 
-        inputStream.use { inputStream ->
-            var bytesRead: Int
+        while (byte >= 0 && buffer.hasRemaining()) {
+            byte = inputStream.read()
 
-            do {
-                bytesRead = inputStream.read(buffer)
-
-                if (bytesRead > 0) {
-                    writeChunkHeader(bytesRead, outputStream)
-
-                    outputStream.write(buffer, 0, bytesRead)
-                    outputStream.write("\r\n".toByteArray())
-                }
-            } while (bytesRead > 0)
-
-            writeChunkHeader(0, outputStream)
+            if (byte >= 0) {
+                buffer.put(byte.toByte())
+            }
         }
-    }
 
-    private fun writeChunkHeader(size: Int, outputStream: OutputStream) {
-        val chunkHeader = size.toString(16)
-
-        _logger.trace("Writing chunk header: $chunkHeader")
-
-        outputStream.write(chunkHeader.toByteArray())
-        outputStream.write("\r\n".toByteArray())
+        return byte > 0
     }
 }

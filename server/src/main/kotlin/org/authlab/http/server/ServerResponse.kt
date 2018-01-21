@@ -24,21 +24,18 @@
 
 package org.authlab.http.server
 
-import org.authlab.http.bodies.Body
-import org.authlab.http.bodies.EmptyBody
 import org.authlab.http.Headers
 import org.authlab.http.Response
 import org.authlab.http.ResponseLine
+import org.authlab.http.bodies.BodyWriter
+import org.authlab.http.bodies.EmptyBodyWriter
 
-class ServerResponse internal constructor(internal val internalResponse: Response) {
+class ServerResponse internal constructor(internal val internalResponse: Response, val bodyWriter: BodyWriter) {
     val responseLine: ResponseLine
         get() = internalResponse.responseLine
 
     val headers: Headers
         get() = internalResponse.headers
-
-    val body: Body
-        get() = internalResponse.body
 
     val statusCode: Int
         get() = internalResponse.responseLine.statusCode
@@ -57,7 +54,7 @@ class ServerResponse internal constructor(internal val internalResponse: Respons
 class ServerResponseBuilder() {
     private var _statusLine: ResponseLine? = null
     private var _headers = Headers()
-    private var _body: Body = EmptyBody()
+    private var _bodyWriter: BodyWriter = EmptyBodyWriter()
 
     constructor(init: ServerResponseBuilder.() -> Unit) : this() {
         init()
@@ -72,35 +69,34 @@ class ServerResponseBuilder() {
         _headers = _headers.withHeader(header.first, header.second)
     }
 
-    fun body(init: () -> Body) {
-        _body = init()
+    fun body(init: () -> BodyWriter) {
+        _bodyWriter = init()
     }
 
     fun build(): ServerResponse {
         val statusLine = _statusLine ?: throw IllegalStateException("No statusLine on server response")
-        val body = _body
+        val bodyWriter = _bodyWriter
 
-        if (body !is EmptyBody) {
-
-            if (!body.streaming && !_headers.hasHeader("Content-Length")) {
-                _headers = _headers.withHeader("Content-Length", body.size.toString())
+        if (bodyWriter !is EmptyBodyWriter) {
+            bodyWriter.contentLength?.also {
+                _headers = _headers.withHeader("Content-Length", it.toString())
             }
 
-            if (!_headers.hasHeader("Content-Type")) {
-                _headers = _headers.withHeader("Content-Type", body.contentType)
+            bodyWriter.contenteType?.also {
+                _headers = _headers.withHeader("Content-Type", it)
             }
 
-            if (body.contentEncoding != null && !_headers.hasHeader("Content-Encoding")) {
-                _headers = _headers.withHeader("Content-Encoding", body.contentEncoding!!)
+            bodyWriter.contenteEncoding?.also {
+                _headers = _headers.withHeader("Content-Encoding", it)
             }
 
-            if (body.transferEncoding != null && !_headers.hasHeader("Transfer-Encoding")) {
-                _headers = _headers.withHeader("Transfer-Encoding", body.transferEncoding!!)
+            bodyWriter.transferEncoding?.also {
+                _headers = _headers.withHeader("Transfer-Encoding", it)
             }
         }
 
-        val internalResponse = Response(statusLine, _headers, _body)
+        val internalResponse = Response(statusLine, _headers)
 
-        return ServerResponse(internalResponse)
+        return ServerResponse(internalResponse, bodyWriter)
     }
 }

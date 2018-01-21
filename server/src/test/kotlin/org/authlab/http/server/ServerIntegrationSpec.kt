@@ -27,8 +27,12 @@ package org.authlab.http.server
 import io.kotlintest.matchers.shouldBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.crypto.setupDefaultSslContext
-import org.authlab.http.bodies.StringBody
+import org.authlab.http.bodies.DelayedBodyReader
+import org.authlab.http.bodies.FormBodyReader
+import org.authlab.http.bodies.StringBodyReader
+import org.authlab.http.bodies.StringBodyWriter
 import org.authlab.http.client.buildClient
+import org.authlab.http.client.postForm
 import org.authlab.util.randomPort
 
 class ServerIntegrationSpec : StringSpec() {
@@ -67,25 +71,23 @@ class ServerIntegrationSpec : StringSpec() {
 
                 handle("/foo") {
                     status { 200 to "OK" }
-                    body { StringBody("bar") }
+                    body { StringBodyWriter("bar") }
                 }
             }.also { it.start() }
 
             server.use {
-                val badResponse = buildClient("localhost:$serverPort")
+                buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().get()
-                }
-
-                badResponse.responseLine.statusCode shouldBe 404
-
-                val okResponse = buildClient("localhost:$serverPort")
-                        .use { client ->
-                            client.request().get("/foo")
+                            val response = client.request().get()
+                            response.responseLine.statusCode shouldBe 404
                         }
 
-                okResponse.responseLine.statusCode shouldBe 200
-                (okResponse.body as StringBody).data shouldBe "bar"
+                buildClient("localhost:$serverPort")
+                        .use { client ->
+                            val response = client.request().get("/foo")
+                            response.responseLine.statusCode shouldBe 200
+                            response.getBody(StringBodyReader()).string shouldBe "bar"
+                        }
             }
         }
 
@@ -100,38 +102,35 @@ class ServerIntegrationSpec : StringSpec() {
 
                 handle("/do/*/mi") {
                     status { 200 to "OK" }
-                    body { StringBody("/do/*/mi") }
+                    body { StringBodyWriter("/do/*/mi") }
                 }
 
                 handle("/do/*") {
                     status { 200 to "OK" }
-                    body { StringBody("/do/*") }
+                    body { StringBodyWriter("/do/*") }
                 }
             }.also { it.start() }
 
             server.use {
-                val badResponse = buildClient("localhost:$serverPort")
+                buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().get()
+                            val badResponse = client.request().get()
+                            badResponse.responseLine.statusCode shouldBe 404
                         }
 
-                badResponse.responseLine.statusCode shouldBe 404
-
-                var okResponse = buildClient("localhost:$serverPort")
+                buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().get("/do/re")
+                            val okResponse = client.request().get("/do/re")
+                            okResponse.responseLine.statusCode shouldBe 200
+                            okResponse.getBody(StringBodyReader()).string shouldBe "/do/*"
                         }
 
-                okResponse.responseLine.statusCode shouldBe 200
-                (okResponse.body as StringBody).data shouldBe "/do/*"
-
-                okResponse = buildClient("localhost:$serverPort")
+                buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().get("/do/re/mi")
+                            val okResponse = client.request().get("/do/re/mi")
+                            okResponse.responseLine.statusCode shouldBe 200
+                            okResponse.getBody(StringBodyReader()).string shouldBe "/do/*/mi"
                         }
-
-                okResponse.responseLine.statusCode shouldBe 200
-                (okResponse.body as StringBody).data shouldBe "/do/*/mi"
             }
         }
 
@@ -144,23 +143,56 @@ class ServerIntegrationSpec : StringSpec() {
                     port = serverPort
                 }
 
-                handle("/foo") { request ->
-                    val body = request.body as StringBody
+                handle("/text") { request ->
+                    val body = request.getBody()
 
                     status { 200 to "OK" }
-                    body { StringBody(body.data.toUpperCase()) }
+                    body { StringBodyWriter(body.string.toUpperCase()) }
+                }
+
+                handle("/form", FormBodyReader()) { request ->
+                    val body = request.getBody()
+
+                    status { 200 to "OK" }
+                    body { StringBodyWriter(body["foo"].toString()) }
+                }
+
+                handle("/delayed", DelayedBodyReader()) { request ->
+                    val body = request.getBody(StringBodyReader())
+
+                    status { 200 to "OK" }
+                    body { StringBodyWriter(body.string.toUpperCase()) }
                 }
             }.also { it.start() }
 
-            val response = server.use {
+            server.use {
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().post(StringBody("lorem ipsum ..."), "/foo")
+                            val response = client.request().post(StringBodyWriter("lorem ipsum ..."), "/text")
+
+                            response.responseLine.statusCode shouldBe 200
+                            response.getBody(StringBodyReader()).string shouldBe "LOREM IPSUM ..."
+                        }
+
+                buildClient("localhost:$serverPort")
+                        .use { client ->
+                            val response = client.request().postForm("/form") {
+                                parameter { "foo" to "bar" }
+                                parameter { "13" to "37" }
+                            }
+
+                            response.responseLine.statusCode shouldBe 200
+                            response.getBody(StringBodyReader()).string shouldBe "bar"
+                        }
+
+                buildClient("localhost:$serverPort")
+                        .use { client ->
+                            val response = client.request().post(StringBodyWriter("lorem ipsum ..."), "/delayed")
+
+                            response.responseLine.statusCode shouldBe 200
+                            response.getBody(StringBodyReader()).string shouldBe "LOREM IPSUM ..."
                         }
             }
-
-            response.responseLine.statusCode shouldBe 200
-            (response.body as StringBody).data shouldBe "LOREM IPSUM ..."
         }
 
         "A server can be encrypted" {
@@ -175,18 +207,20 @@ class ServerIntegrationSpec : StringSpec() {
 
                 handle("/foo") {
                     status { 200 to "OK" }
-                    body { StringBody("bar") }
+                    body { StringBodyWriter("bar") }
                 }
             }.also { it.start() }
 
             server.use {
-                val response = buildClient("https://localhost:$serverPort")
+                buildClient("https://localhost:$serverPort")
                         .use { client ->
-                            client.request().get("/foo")
+                            val response = client.request().get("/foo")
+
+                            response.responseLine.statusCode shouldBe 200
+                            response.getBody(StringBodyReader()).string shouldBe "bar"
                         }
 
-                response.responseLine.statusCode shouldBe 200
-                (response.body as StringBody).data shouldBe "bar"
+
             }
         }
     }

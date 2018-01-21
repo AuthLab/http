@@ -24,45 +24,31 @@
 
 package org.authlab.http.client
 
-import org.authlab.http.FormParameters
 import org.authlab.http.FormParametersBuilder
+import org.authlab.http.Headers
 import org.authlab.http.ParametersBuilder
-import org.authlab.http.Response
 import org.authlab.http.bodies.Body
-import org.authlab.http.bodies.FormBody
-import org.authlab.http.bodies.JsonBody
-import org.authlab.http.bodies.StringBody
+import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.FormBodyWriter
+import org.authlab.http.bodies.JsonBodyReader
+import org.authlab.http.bodies.JsonBodyWriter
 import org.authlab.util.loggerFor
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 
 object BodyHelpers {
     val _logger = loggerFor<BodyHelpers>()
 }
 
-fun RequestBuilder.verifiedGet(path: String): Response {
-    val response = get(path)
-
-    val status = response.responseLine.statusCode
-
-    if (status != 200) {
-        BodyHelpers._logger.info("Response status was $status")
-    }
-
-    return response
+fun <B : Body> convertBody(body: Body, bodyReader: BodyReader<B>): B {
+    val outputStream = ByteArrayOutputStream()
+    body.writer.write(outputStream)
+    val headers = Headers().withHeader("Content-Length", "${outputStream.size()}")
+    return bodyReader.read(ByteArrayInputStream(outputStream.toByteArray()), headers)
+            .getBody()
 }
 
-fun RequestBuilder.verifiedPost(body: Body, path: String): Response {
-    val response = post(body, path)
-
-    val status = response.responseLine.statusCode
-
-    if (status != 200) {
-        BodyHelpers._logger.info("Response status was $status")
-    }
-
-    return response
-}
-
-inline fun <reified T> Response.asJson(): T {
+inline fun <reified T> ClientResponse<*>.asJson(): T {
     val contentType = headers.getHeader("Content-Type")?.getFirst()
 
     if (!contentType.equals("application/json")) {
@@ -70,39 +56,18 @@ inline fun <reified T> Response.asJson(): T {
                 "attempting to read json body anyways")
     }
 
-    return (body as JsonBody).getTypedData()
+    return getBody(JsonBodyReader()).getTypedValue()
 }
 
 inline fun <reified T> RequestBuilder.getJson(path: String = "/"): T {
-    accept = "application/json"
-
-    return verifiedGet(path).asJson()
+    return get(JsonBodyReader(), path).getBody().getTypedValue()
 }
 
-fun RequestBuilder.postJson(data: Any, path: String = "/"): Response {
-    return verifiedPost(JsonBody(data), path)
+fun RequestBuilder.postJson(data: Any, path: String = "/"): ClientResponse<*> {
+    return post(JsonBodyWriter(data), path)
 }
 
-fun RequestBuilder.postForm(form: Map<String, String?>, path: String = "/"): Response {
-    var formParameters = FormParameters()
-
-    form.forEach{ (name, value) ->
-        formParameters = formParameters.withParameter(name, value)
-    }
-
-    return verifiedPost(FormBody(formParameters), path)
-}
-
-fun RequestBuilder.postForm(path: String = "/", init: ParametersBuilder.() -> Unit): Response {
+fun RequestBuilder.postForm(path: String = "/", init: ParametersBuilder.() -> Unit): ClientResponse<*> {
     val formParameters = FormParametersBuilder(init).build()
-
-    return verifiedPost(FormBody(formParameters), path)
-}
-
-fun RequestBuilder.postText(text: String, path: String = "/"): Response {
-    return verifiedPost(StringBody(text, "text/plain"), path)
-}
-
-fun RequestBuilder.postHtml(text: String, path: String = "/"): Response {
-    return verifiedPost(StringBody(text, "text/html"), path)
+    return post(FormBodyWriter(formParameters), path)
 }

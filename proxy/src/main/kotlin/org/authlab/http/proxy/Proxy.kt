@@ -32,6 +32,7 @@ import org.authlab.http.Host
 import org.authlab.http.Request
 import org.authlab.http.Response
 import org.authlab.http.ResponseLine
+import org.authlab.http.bodies.ByteBodyReader
 import org.authlab.http.proxy.SimpleTunnel
 import org.authlab.http.proxy.Transaction
 import org.authlab.http.proxy.Tunnel
@@ -71,7 +72,7 @@ open class Proxy(private val incomingSocket: Socket,
         try {
             val transactionStartInstant = Instant.now()
 
-            val incomingRequest = Request.fromInputStream(incomingSocket.inputStream) { request ->
+            val incomingRequest = Request.fromInputStream(incomingSocket.inputStream, ByteBodyReader()) { request ->
                 if (request.headers.getHeader("Content-Length")?.getFirstAsInt() ?: 0 > 0) {
                     _logger.debug("Sending 100 Continue")
                     val continueResponse = Response(ResponseLine(100, "Continue"))
@@ -138,13 +139,13 @@ open class Proxy(private val incomingSocket: Socket,
                 _logger.info("Proxying request '${outgoingRequest.requestLine}' to ${outgoingSocket.inetAddress}")
                 outgoingRequest.write(outgoingSocket.outputStream)
 
-                var incomingResponse = Response.fromInputStream(outgoingSocket.inputStream)
+                var incomingResponse = Response.fromInputStream(outgoingSocket.inputStream, ByteBodyReader())
 
                 _logger.debug("Received response: {}", incomingResponse)
 
                 if (incomingResponse.responseLine.statusCode == 100) {
                     _logger.debug("Received 100 Continue; dropping response and preparing for next")
-                    incomingResponse = Response.fromInputStream(outgoingSocket.inputStream)
+                    incomingResponse = Response.fromInputStream(outgoingSocket.inputStream, ByteBodyReader())
                 }
 
                 val outgoingResponse = createResponseToProxy(incomingResponse)
@@ -191,15 +192,19 @@ open class Proxy(private val incomingSocket: Socket,
         var headers = incomingRequest.headers
                 .withoutHeaders("Proxy-Authorization")
                 .withoutHeaders("Proxy-Connection")
+                .withoutHeaders("Content-Length")
+                .withoutHeaders("Transfer-Encoding")
                 .withHeader(Header("Proxy-Token", proxyToken))
                 .withHeader(Header("Forwarded",
                         "by=${incomingSocket.localSocketAddress}; " +
                                 "for=${incomingSocket.remoteSocketAddress}"))
 
-        if (incomingRequest.body !is EmptyBody) {
-            headers = headers.withoutHeaders("Content-Length")
-                    .withoutHeaders("Transfer-Encoding")
-                    .withHeader("Content-Length", "${incomingRequest.body.size}")
+        incomingRequest.body.writer.contentLength?.also {
+            headers = headers.withHeader("Content-length", "$it")
+        }
+
+        incomingRequest.body.writer.transferEncoding?.also {
+            headers = headers.withHeader("Transfer-Encoding", it)
         }
 
         return incomingRequest.withRequestLine(incomingRequest.requestLine.withOnlyUriPath())
@@ -208,11 +213,15 @@ open class Proxy(private val incomingSocket: Socket,
 
     protected open fun createResponseToProxy(incomingResponse: Response): Response {
         var headers = incomingResponse.headers
+                .withoutHeaders("Content-Length")
+                .withoutHeaders("Transfer-Encoding")
 
-        if (incomingResponse.body !is EmptyBody) {
-            headers = headers.withoutHeaders("Content-Length")
-                    .withoutHeaders("Transfer-Encoding")
-                    .withHeader("Content-Length", "${incomingResponse.body.size}")
+        incomingResponse.body.writer.contentLength?.also {
+            headers = headers.withHeader("Content-length", "$it")
+        }
+
+        incomingResponse.body.writer.transferEncoding?.also {
+            headers = headers.withHeader("Transfer-Encoding", it)
         }
 
         return incomingResponse.withHeaders(headers)
@@ -239,11 +248,15 @@ class ProxyTunnel(incomingSocket: Socket,
     override fun createRequestToProxy(incomingRequest: Request): Request {
         var headers = incomingRequest.headers
                 .withHeader(Header("Proxy-Token", proxyToken))
+                .withoutHeaders("Content-Length")
+                .withoutHeaders("Transfer-Encoding")
 
-        if (incomingRequest.body !is EmptyBody) {
-            headers = headers.withoutHeaders("Content-Length")
-                    .withoutHeaders("Transfer-Encoding")
-                    .withHeader("Content-Length", "${incomingRequest.body.size}")
+        incomingRequest.body.writer.contentLength?.also {
+            headers = headers.withHeader("Content-length", "$it")
+        }
+
+        incomingRequest.body.writer.transferEncoding?.also {
+            headers = headers.withHeader("Transfer-Encoding", it)
         }
 
         return incomingRequest.withRequestLine(incomingRequest.requestLine.withOnlyUriPath())
@@ -252,11 +265,15 @@ class ProxyTunnel(incomingSocket: Socket,
 
     override fun createResponseToProxy(incomingResponse: Response): Response {
         var headers = incomingResponse.headers
+                .withoutHeaders("Content-Length")
+                .withoutHeaders("Transfer-Encoding")
 
-        if (incomingResponse.body !is EmptyBody) {
-            headers = headers.withoutHeaders("Content-Length")
-                    .withoutHeaders("Transfer-Encoding")
-                    .withHeader("Content-Length", "${incomingResponse.body.size}")
+        incomingResponse.body.writer.contentLength?.also {
+            headers = headers.withHeader("Content-length", "$it")
+        }
+
+        incomingResponse.body.writer.transferEncoding?.also {
+            headers = headers.withHeader("Transfer-Encoding", it)
         }
 
         return incomingResponse.withHeaders(headers)

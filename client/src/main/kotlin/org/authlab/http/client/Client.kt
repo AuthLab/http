@@ -24,10 +24,6 @@
 
 package org.authlab.http.client
 
-import org.authlab.util.loggerFor
-import org.authlab.http.bodies.Body
-import org.authlab.http.bodies.EmptyBody
-import org.authlab.http.Header
 import org.authlab.http.Headers
 import org.authlab.http.Host
 import org.authlab.http.Location
@@ -35,7 +31,12 @@ import org.authlab.http.QueryParameters
 import org.authlab.http.Request
 import org.authlab.http.RequestLine
 import org.authlab.http.Response
-import org.authlab.http.bodies.emptyBody
+import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.BodyWriter
+import org.authlab.http.bodies.ByteBodyReader
+import org.authlab.http.bodies.EmptyBodyWriter
+import org.authlab.util.loggerFor
 import java.io.Closeable
 import java.io.IOException
 import java.net.Socket
@@ -69,7 +70,7 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
             _logger.debug("Sending CONNECT request to proxy")
             Request(RequestLine("CONNECT", Location(host))).write(socket.outputStream)
 
-            val connectResponse = Response.fromInputStream(socket.inputStream)
+            val connectResponse = Response.fromInputStream(socket.inputStream, ByteBodyReader())
 
             if (connectResponse.responseLine.statusCode == 200) {
                 _logger.debug("Proxy tunnel established")
@@ -96,22 +97,26 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
         return RequestBuilderImpl(this, init)
     }
 
-    fun execute(request: Request): Response {
+    private fun execute(request: Request, bodyWriter: BodyWriter = EmptyBodyWriter()): Response {
         _logger.debug("Sending request: {}", request.requestLine)
         _logger.trace("Request: {}", request)
 
-        request.write(socket.outputStream)
+        request.write(socket.outputStream, bodyWriter)
 
         _logger.debug("Waiting for response")
-        var response = Response.fromInputStream(socket.inputStream)
+        var response = Response.fromInputStreamWithoutBody(socket.inputStream)
 
         if (response.responseLine.statusCode == 100) {
+            // Read response body fully, even though we expect none
+            ByteBodyReader().read(socket.inputStream, response.headers)
+
             _logger.debug("Received 100 Continue; dropping response and preparing for next")
-            response = Response.fromInputStream(socket.inputStream)
+            response = Response.fromInputStreamWithoutBody(socket.inputStream)
         }
 
         _logger.debug("Response received: {}", response.responseLine)
         _logger.trace("Response: {}", response)
+
         return response
     }
 
@@ -164,60 +169,39 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
             return this
         }
 
-        override fun get(path: String?): Response {
-            return execute("GET", emptyBody(), path)
-        }
-
-        override fun post(body: Body, path: String?): Response {
-            return execute("POST", body, path)
-        }
-
-        override fun put(body: Body, path: String?): Response {
-            return execute("PUT", body, path)
-        }
-
-        override fun delete(path: String?): Response {
-            return execute("DELETE", emptyBody(), path)
-        }
-
-        override fun patch(body: Body, path: String?): Response {
-            return execute("PATCH", body, path)
-        }
-
-        override fun execute(method: String, body: Body, path: String?): Response {
+        override fun <B : Body> execute(method: String, bodyWriter: BodyWriter, bodyReader: BodyReader<B>, path: String?): ClientResponse<B> {
             if (path != null) {
                 this.path = path
             }
 
             headers = headers.withHeader("Host", client.host.hostnameAndPort)
 
-            if (body !is EmptyBody) {
-                val contentLength = body.size
-
-                if (!body.streaming && !headers.hasHeader("Content-Length")) {
-                    _logger.debug("Applying Content-Length header: $contentLength")
-                    headers = headers.withHeader(Header("Content-Length", "$contentLength"))
+            if (bodyWriter !is EmptyBodyWriter) {
+                bodyWriter.contentLength?.also {
+                    headers = headers.withHeader("Content-Length", it.toString())
                 }
 
-                if (!headers.hasHeader("Content-Type")) {
-                    _logger.debug("Applying Content-Type header: ${body.contentType}")
-                    headers = headers.withHeader("Content-Type", body.contentType)
+                bodyWriter.contenteType?.also {
+                    headers = headers.withHeader("Content-Type", it)
                 }
 
-                if (body.contentEncoding != null && !headers.hasHeader("Content-Encoding")) {
-                    _logger.debug("Applying Content-Encoding header: ${body.contentEncoding}")
-                    headers = headers.withHeader("Content-Encoding", body.contentEncoding!!)
+                bodyWriter.contenteEncoding?.also {
+                    headers = headers.withHeader("Content-Encoding", it)
                 }
 
-                if (body.transferEncoding != null && !headers.hasHeader("Transfer-Encoding")) {
-                    _logger.debug("Applying Transfer-Encoding header: ${body.transferEncoding}")
-                    headers = headers.withHeader("Transfer-Encoding", body.transferEncoding!!)
+                bodyWriter.transferEncoding?.also {
+                    headers = headers.withHeader("Transfer-Encoding", it)
                 }
             }
 
-            return client.execute(Request(
-                    RequestLine(method, Location(client.host, this.path, query)),
-                    headers, body))
+            val request = Request(RequestLine(method, Location(client.host, this.path, query)), headers)
+
+            val response = client.execute(request, bodyWriter)
+
+            val body = bodyReader.read(client.socket.inputStream, response.headers)
+                    .getBody()
+
+            return ClientResponse(response, body)
         }
     }
 }

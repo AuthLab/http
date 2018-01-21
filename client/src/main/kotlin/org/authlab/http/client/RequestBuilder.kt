@@ -25,7 +25,10 @@
 package org.authlab.http.client
 
 import org.authlab.http.bodies.Body
-import org.authlab.http.Response
+import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.BodyWriter
+import org.authlab.http.bodies.DelayedBodyReader
+import org.authlab.http.bodies.EmptyBodyWriter
 
 interface RequestBuilder {
     var path: String
@@ -48,10 +51,35 @@ interface RequestBuilder {
         header(init())
     }
 
-    fun get(path: String? = null): Response
-    fun post(body: Body, path: String? = null): Response
-    fun put(body: Body, path: String? = null): Response
-    fun delete(path: String? = null): Response
-    fun patch(body: Body, path: String? = null): Response
-    fun execute(method: String, body: Body, path: String? = null): Response
+    fun get(path: String? = null)
+            = get(DelayedBodyReader(), path)
+
+    fun <B : Body> get(bodyReader: BodyReader<B>, path: String? = null)
+            = execute("GET", EmptyBodyWriter(), bodyReader, path)
+
+    fun post(bodyWriter: BodyWriter, path: String? = null)
+            = post(bodyWriter, DelayedBodyReader(), path)
+
+    fun <B : Body> post(bodyWriter: BodyWriter, bodyReader: BodyReader<B>, path: String? = null)
+            = execute("POST", bodyWriter, bodyReader, path)
+
+    fun put(bodyWriter: BodyWriter, path: String? = null)
+            = put(bodyWriter, DelayedBodyReader(), path)
+
+    fun <B : Body> put(bodyWriter: BodyWriter, bodyReader: BodyReader<B>, path: String? = null)
+            = execute("PUT", bodyWriter, bodyReader, path)
+
+    fun delete(path: String? = null)
+            = delete(DelayedBodyReader(), path)
+
+    fun <B : Body> delete(bodyReader: BodyReader<B>, path: String? = null)
+            = execute("DELETE", EmptyBodyWriter(), bodyReader, path)
+
+    fun patch(bodyWriter: BodyWriter, path: String? = null)
+            = patch(bodyWriter, DelayedBodyReader(), path)
+
+    fun <B : Body> patch(bodyWriter: BodyWriter, bodyReader: BodyReader<B>, path: String? = null)
+            = execute("PATCH", bodyWriter, bodyReader, path)
+
+    fun <B : Body> execute(method: String, bodyWriter: BodyWriter, bodyReader: BodyReader<B>, path: String? = null): ClientResponse<B>
 }
