@@ -43,7 +43,7 @@ class SerializedJsonBody(json: String) : StringBody(json) {
             = _gson.fromJson(string, type)
 }
 
-class JsonBodyReader : StringBodyReader() {
+class JsonBodyReader : AbstractStringBodyReader<SerializedJsonBody>() {
     override fun getBody() = SerializedJsonBody(getStringValue())
 }
 

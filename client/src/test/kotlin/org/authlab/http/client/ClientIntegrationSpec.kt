@@ -28,7 +28,6 @@ import io.kotlintest.matchers.shouldBe
 import io.kotlintest.matchers.shouldNotBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.http.bodies.JsonBodyReader
-import org.authlab.http.bodies.SerializedJsonBody
 import org.authlab.http.bodies.StringBodyWriter
 import org.authlab.http.echo.EchoServerBuilder
 import org.authlab.util.randomPort
@@ -299,7 +298,7 @@ class ClientIntegrationSpec : StringSpec() {
     private fun getJson(response: ClientResponse<*>): Map<String, String> {
         response.headers.getHeader("Content-Type")!!.getFirst() shouldBe "application/json"
 
-        val jsonBody = response.getBody(JsonBodyReader()) as SerializedJsonBody
+        val jsonBody = response.getBody(JsonBodyReader())
         println(jsonBody.string)
 
         return jsonBody.getTypedValue()

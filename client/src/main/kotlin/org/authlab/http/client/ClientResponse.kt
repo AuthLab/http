@@ -30,6 +30,8 @@ import org.authlab.http.ResponseLine
 import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.DelayedBody
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 
 class ClientResponse<out B : Body> internal constructor(private val internalResponse: Response,
                                                         private val body: B) {
@@ -62,7 +64,7 @@ class ClientResponse<out B : Body> internal constructor(private val internalResp
         return when (body) {
             is B -> body
             is DelayedBody -> body.read(bodyReader)
-            else -> throw IllegalStateException("Response body has already been read")
+            else -> convertBody(body, bodyReader)
         }
     }
 }

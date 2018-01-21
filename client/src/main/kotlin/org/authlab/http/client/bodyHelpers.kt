@@ -25,15 +25,27 @@
 package org.authlab.http.client
 
 import org.authlab.http.FormParametersBuilder
+import org.authlab.http.Headers
 import org.authlab.http.ParametersBuilder
+import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.FormBodyWriter
 import org.authlab.http.bodies.JsonBodyReader
 import org.authlab.http.bodies.JsonBodyWriter
-import org.authlab.http.bodies.SerializedJsonBody
 import org.authlab.util.loggerFor
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 
 object BodyHelpers {
     val _logger = loggerFor<BodyHelpers>()
+}
+
+fun <B : Body> convertBody(body: Body, bodyReader: BodyReader<B>): B {
+    val outputStream = ByteArrayOutputStream()
+    body.writer.write(outputStream)
+    val headers = Headers().withHeader("Content-Length", "${outputStream.size()}")
+    return bodyReader.read(ByteArrayInputStream(outputStream.toByteArray()), headers)
+            .getBody()
 }
 
 inline fun <reified T> ClientResponse<*>.asJson(): T {
@@ -44,11 +56,11 @@ inline fun <reified T> ClientResponse<*>.asJson(): T {
                 "attempting to read json body anyways")
     }
 
-    return (getBody(JsonBodyReader()) as SerializedJsonBody).getTypedValue()
+    return getBody(JsonBodyReader()).getTypedValue()
 }
 
 inline fun <reified T> RequestBuilder.getJson(path: String = "/"): T {
-    return (get(JsonBodyReader(), path).getBody() as SerializedJsonBody).getTypedValue()
+    return get(JsonBodyReader(), path).getBody().getTypedValue()
 }
 
 fun RequestBuilder.postJson(data: Any, path: String = "/"): ClientResponse<*> {

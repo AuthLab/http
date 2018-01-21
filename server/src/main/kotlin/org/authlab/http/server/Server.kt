@@ -157,6 +157,7 @@ class ServerBuilder constructor() {
 
     fun <R : BodyReader<B>, B : Body> handleCallback(entryPoint: String, bodyReader: R, handle: (ServerRequest<B>) -> ServerResponseBuilder) {
         _handlerBuilders.add(HandlerBuilder(bodyReader) {
+            this.entryPoint = entryPoint
             onRequest(handle)
         })
     }

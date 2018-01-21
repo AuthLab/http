@@ -32,6 +32,7 @@ import org.authlab.http.Request
 import org.authlab.http.RequestLine
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.DelayedBody
+import org.authlab.http.client.convertBody
 
 class ServerRequest<out B : Body> internal constructor(request: Request,
                                                        private val body: B) {
@@ -74,7 +75,7 @@ class ServerRequest<out B : Body> internal constructor(request: Request,
         return when (body) {
             is B -> body
             is DelayedBody -> body.read(bodyReader)
-            else -> throw IllegalStateException("Request body has already been read")
+            else -> convertBody(body, bodyReader)
         }
     }
 }
