@@ -41,10 +41,10 @@ class DelayedBodyWriter : BodyWriter {
     override val contentLength: Int?
         get() = throw UnsupportedOperationException()
 
-    override val contenteType: String?
+    override val contentType: String?
         get() = throw UnsupportedOperationException()
 
-    override val contenteEncoding: String?
+    override val contentEncoding: String?
         get() = throw UnsupportedOperationException()
 
     override val transferEncoding: String?

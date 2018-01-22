@@ -82,11 +82,11 @@ class ServerResponseBuilder() {
                 _headers = _headers.withHeader("Content-Length", it.toString())
             }
 
-            bodyWriter.contenteType?.also {
+            bodyWriter.contentType?.also {
                 _headers = _headers.withHeader("Content-Type", it)
             }
 
-            bodyWriter.contenteEncoding?.also {
+            bodyWriter.contentEncoding?.also {
                 _headers = _headers.withHeader("Content-Encoding", it)
             }
 

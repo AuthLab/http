@@ -181,11 +181,11 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
                     headers = headers.withHeader("Content-Length", it.toString())
                 }
 
-                bodyWriter.contenteType?.also {
+                bodyWriter.contentType?.also {
                     headers = headers.withHeader("Content-Type", it)
                 }
 
-                bodyWriter.contenteEncoding?.also {
+                bodyWriter.contentEncoding?.also {
                     headers = headers.withHeader("Content-Encoding", it)
                 }
 

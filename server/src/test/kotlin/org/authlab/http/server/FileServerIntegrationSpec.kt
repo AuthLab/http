@@ -24,6 +24,7 @@
 
 package org.authlab.http.server
 
+import io.kotlintest.matchers.shouldBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.http.bodies.StreamBodyWriter
 import org.authlab.http.bodies.TextBody
@@ -57,7 +58,18 @@ class FileServerIntegrationSpec : StringSpec() {
                         }
             }
 
-            println(response)
+            response shouldBe """
+                |<!DOCTYPE html>
+                |<html>
+                |    <head>
+                |        <title>Hello World!</title>
+                |    </head>
+                |    <body>
+                |        <h1>Hello</h1>
+                |        <p>world</p>
+                |    </body>
+                |</html>
+            """.trimMargin()
         }
     }
 

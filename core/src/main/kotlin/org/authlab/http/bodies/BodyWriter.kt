@@ -33,9 +33,9 @@ import java.nio.ByteBuffer
 interface BodyWriter {
     val contentLength: Int?
 
-    val contenteType: String?
+    val contentType: String?
 
-    val contenteEncoding: String?
+    val contentEncoding: String?
 
     val transferEncoding: String?
 
@@ -101,6 +101,11 @@ abstract class AbstractBodyWriter : BodyWriter {
                 _logger.warn("Content length reached, but writer reports more data to write; aborting write")
                 hasMoreData = false
             }
+        }
+
+        if (chunked) {
+            // Write terminating chunk
+            outputStream.write("0\r\n\r\n".toByteArray())
         }
 
         if (!chunked && bytesWritten < contentLength!!) {

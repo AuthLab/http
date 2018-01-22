@@ -34,8 +34,8 @@ class StreamBody(val inputStream: InputStream) : Body {
 }
 
 class StreamBodyWriter(val inputStream: InputStream,
-                       override val contenteType: String = "application/octet-stream",
-                       override val contenteEncoding: String? = null) : AbstractBodyWriter() {
+                       override val contentType: String = "application/octet-stream",
+                       override val contentEncoding: String? = null) : AbstractBodyWriter() {
     override val contentLength: Int?
         get() = null
 

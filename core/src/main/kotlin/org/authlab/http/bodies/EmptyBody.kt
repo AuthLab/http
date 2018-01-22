@@ -37,10 +37,10 @@ class EmptyBodyWriter : BodyWriter {
     override val contentLength: Int?
         get() = null
 
-    override val contenteType: String?
+    override val contentType: String?
         get() = null
 
-    override val contenteEncoding: String?
+    override val contentEncoding: String?
         get() = null
 
     override val transferEncoding: String?

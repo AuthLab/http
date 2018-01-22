@@ -61,8 +61,8 @@ class ByteBodyReader : AbstractByteBodyReader<ByteBody>() {
 }
 
 open class ByteBodyWriter(val bytes: ByteArray,
-                          override val contenteType: String = "application/octet-stream",
-                          override val contenteEncoding: String? = null) : AbstractBodyWriter() {
+                          override val contentType: String = "application/octet-stream",
+                          override val contentEncoding: String? = null) : AbstractBodyWriter() {
     private var _position = 0
 
     override val contentLength: Int?
