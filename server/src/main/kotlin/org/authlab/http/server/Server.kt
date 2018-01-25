@@ -140,6 +140,10 @@ class Server(private val listeners: List<ServerListener>,
 
 fun buildServer(init: ServerBuilder.() -> Unit) = ServerBuilder(init).build()
 
+@DslMarker
+annotation class ServerMarker
+
+@ServerMarker
 class ServerBuilder constructor() {
     var threadPoolSize: Int = 100
 

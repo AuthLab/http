@@ -51,6 +51,7 @@ class ServerResponse internal constructor(internal val internalResponse: Respons
     fun toHar() = internalResponse.toHar()
 }
 
+@ServerMarker
 class ServerResponseBuilder() {
     private var _statusLine: ResponseLine? = null
     private var _headers = Headers()

@@ -208,6 +208,10 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
 
 fun buildClient(host: String, init: ClientBuilder.() -> Unit = {}) = ClientBuilder(host, init).build()
 
+@DslMarker
+annotation class ClientMarker
+
+@ClientMarker
 class ClientBuilder(private val host: String) {
     var proxy: String? = null
     var socketFactory: SocketFactory? = null

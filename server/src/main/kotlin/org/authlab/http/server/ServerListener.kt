@@ -87,6 +87,7 @@ class ServerListener(val inetAddress: InetAddress, val port: Int,
     }
 }
 
+@ServerMarker
 class ServerListenerBuilder() {
     constructor(init: ServerListenerBuilder.() -> Unit) : this() {
         init()

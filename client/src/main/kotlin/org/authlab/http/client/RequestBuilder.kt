@@ -30,6 +30,7 @@ import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.DelayedBodyReader
 import org.authlab.http.bodies.EmptyBodyWriter
 
+@ClientMarker
 interface RequestBuilder {
     var path: String
     var contentType: String?
