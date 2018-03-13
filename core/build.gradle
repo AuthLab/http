@@ -33,6 +33,7 @@ dependencies {
 compileKotlin {
     kotlinOptions.jvmTarget = "$java_version"
 }
+
 compileTestKotlin {
     kotlinOptions.jvmTarget = "$java_version"
 }

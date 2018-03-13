@@ -17,7 +17,7 @@ Package with:
 Run with:
 
 ```
-./build/install/proxy/run
+./build/install/proxy/proxy
 ```
 
 ## Docker
@@ -39,3 +39,4 @@ docker run -p 8080:8080 -it --rm --name my-running-proxy my-proxy
 * Persistent connections (keep-alive)
 * WebSockets
 * HTTP/2
+* Authorization

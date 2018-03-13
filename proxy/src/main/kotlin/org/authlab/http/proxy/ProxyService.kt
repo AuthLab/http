@@ -70,6 +70,8 @@ class ProxyService(inetAddress: InetAddress, port: Int, backlog: Int, encrypted:
         fun onTransaction(transaction: Transaction) {
             val har = transaction.toHar()
 
+            _logger.trace("Logging audit and har")
+
             _logger.info(AUDIT_MARKER, "$har")
 
             _harLogger.info(HAR_MARKER, SimpleMapMessage(har))

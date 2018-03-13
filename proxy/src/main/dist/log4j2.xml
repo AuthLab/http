@@ -19,20 +19,15 @@
             </Policies>
         </RollingFile>
 
-        <RollingFile name="HAR" fileName="logs/har.log"
-                     filePattern="logs/har-%d{yyyy-MM-dd}-%i.log.gz">
+        <Http name="HAR" url="http://localhost:8180/api/sources/server/events">
             <MarkerFilter marker="HAR" onMatch="ACCEPT" onMismatch="DENY"/>
-            <JsonMapLayout complete="true"/>
-            <Policies>
-                <OnStartupTriggeringPolicy />
-                <SizeBasedTriggeringPolicy size="250 MB" />
-                <TimeBasedTriggeringPolicy />
-            </Policies>
-        </RollingFile>
+            <JsonMapLayout />
+        </Http>
     </Appenders>
 
     <Loggers>
         <!--<Logger name="org.authlab" level="DEBUG"/>-->
+        <!--<Logger name="org.authlab.http.proxy" level="TRACE"/>-->
 
         <Root level="INFO">
             <AppenderRef ref="Console"/>
