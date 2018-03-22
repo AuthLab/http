@@ -35,8 +35,8 @@ import javax.net.ssl.SSLContext
 
 private val _logger = loggerFor("SSL")
 
-fun setupDefaultSslContext(caFilePath: String = "./ca.p12", password: String = "rootroot",
-                           defaultHostname: String = "localhost", storeGeneratedCertificates: Boolean = false) {
+fun createSslContext(caFilePath: String = "./ca.p12", password: String = "rootroot",
+                     defaultHostname: String = "localhost", storeGeneratedCertificates: Boolean = false) : SSLContext {
     val keyStore = KeyStore.getInstance("PKCS12")
 
     val caInputStream = try {
@@ -65,12 +65,18 @@ fun setupDefaultSslContext(caFilePath: String = "./ca.p12", password: String = "
             ?.toTypedArray()
             ?: throw IllegalStateException("Found no X.509 certificate with alias '$alias'")
     val privateKey = keyStore.getKey(alias, password.toCharArray()) as? PrivateKey ?:
-            throw IllegalStateException("Found no private key with alias '$alias'")
+    throw IllegalStateException("Found no private key with alias '$alias'")
 
     val keyManager = CertificateGeneratingKeyManager(privateKey, certificate, defaultHostname, storeGeneratedCertificates)
     val trustManager = TrustAllTrustManager()
 
     val sslContext = SSLContext.getInstance("TLS")
     sslContext.init(arrayOf(keyManager), arrayOf(trustManager), SecureRandom())
-    SSLContext.setDefault(sslContext)
+
+    return sslContext
+}
+
+fun setupDefaultSslContext(caFilePath: String = "./ca.p12", password: String = "rootroot",
+                           defaultHostname: String = "localhost", storeGeneratedCertificates: Boolean = false) {
+    SSLContext.setDefault(createSslContext(caFilePath, password, defaultHostname, storeGeneratedCertificates))
 }

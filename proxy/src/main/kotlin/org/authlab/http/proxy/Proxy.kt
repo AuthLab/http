@@ -49,6 +49,7 @@ typealias OnClose = (incomingSocket: Socket, outgoingSocket: Socket?) -> Unit
 typealias OnException = (Exception) -> Unit
 
 open class Proxy(private val incomingSocket: Socket,
+                 private val sslContext: SSLContext = SSLContext.getDefault(),
                  private val inspectTunnels: Boolean = true,
                  private val onTransaction: OnTransaction? = null,
                  private val onClose: OnClose? = null,
@@ -117,7 +118,6 @@ open class Proxy(private val incomingSocket: Socket,
                     outgoingSocket = SSLSocketFactory.getDefault()
                             .createSocket(remoteHost.hostname, remoteHost.port)
 
-                    val sslContext = SSLContext.getDefault()
                     val encryptedIncomingSocket = sslContext.socketFactory
                             .createSocket(incomingSocket, null, incomingSocket.port, true) as SSLSocket
                     encryptedIncomingSocket.useClientMode = false
@@ -228,16 +228,17 @@ open class Proxy(private val incomingSocket: Socket,
     }
 
     private fun createTunnel(incomingSocket: Socket, outgoingSocket: Socket, host: Host, onTransaction: OnTransaction?): Tunnel {
-        return ProxyTunnel(incomingSocket, outgoingSocket, host, onTransaction, onException)
+        return ProxyTunnel(incomingSocket, outgoingSocket, sslContext, host, onTransaction, onException)
     }
 }
 
 class ProxyTunnel(incomingSocket: Socket,
                   private val outgoingSocket: Socket,
+                  sslContext: SSLContext,
                   val host: Host,
                   onTransaction: OnTransaction? = null,
                   onException: OnException? = null) :
-        Proxy(incomingSocket, false, onTransaction, null, onException), Tunnel {
+        Proxy(incomingSocket, sslContext, false, onTransaction, null, onException), Tunnel {
     companion object {
         private val _logger = loggerFor<ProxyTunnel>()
     }

@@ -26,7 +26,7 @@
 
 package org.authlab
 
-import org.authlab.crypto.setupDefaultSslContext
+import org.authlab.crypto.createSslContext
 import org.authlab.http.proxy.ProxyService
 import java.net.InetAddress
 
@@ -94,9 +94,9 @@ fun main(args: Array<String>) {
         return
     }
 
-    setupDefaultSslContext(storeGeneratedCertificates = true)
+    val sslContext = createSslContext(storeGeneratedCertificates = true)
 
-    Thread(ProxyService(inetAddress, port, backlog, false, threadPool, inspectTunnels)).start()
+    Thread(ProxyService(inetAddress, port, backlog, sslContext, false, threadPool, inspectTunnels)).start()
 }
 
 internal fun printUsage() {

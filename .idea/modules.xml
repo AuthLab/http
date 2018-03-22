@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/AuthLab_HTTP.iml" filepath="$PROJECT_DIR$/.idea/modules/AuthLab_HTTP.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/client/client.iml" filepath="$PROJECT_DIR$/.idea/modules/client/client.iml" group="client" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/client/client_main.iml" filepath="$PROJECT_DIR$/.idea/modules/client/client_main.iml" group="client" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/client/client_test.iml" filepath="$PROJECT_DIR$/.idea/modules/client/client_test.iml" group="client" />
@@ -11,7 +12,6 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/echo_server/echo_server.iml" filepath="$PROJECT_DIR$/.idea/modules/echo_server/echo_server.iml" group="echo_server" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/echo_server/echo_server_main.iml" filepath="$PROJECT_DIR$/.idea/modules/echo_server/echo_server_main.iml" group="echo_server" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/echo_server/echo_server_test.iml" filepath="$PROJECT_DIR$/.idea/modules/echo_server/echo_server_test.iml" group="echo_server" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/http.iml" filepath="$PROJECT_DIR$/.idea/modules/http.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/proxy/proxy.iml" filepath="$PROJECT_DIR$/.idea/modules/proxy/proxy.iml" group="proxy" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/proxy/proxy_main.iml" filepath="$PROJECT_DIR$/.idea/modules/proxy/proxy_main.iml" group="proxy" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/proxy/proxy_test.iml" filepath="$PROJECT_DIR$/.idea/modules/proxy/proxy_test.iml" group="proxy" />

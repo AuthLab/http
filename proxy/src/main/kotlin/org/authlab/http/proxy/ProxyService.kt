@@ -35,9 +35,9 @@ import java.net.Socket
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
-import javax.net.ssl.SSLServerSocketFactory
+import javax.net.ssl.SSLContext
 
-class ProxyService(inetAddress: InetAddress, port: Int, backlog: Int, encrypted: Boolean = false,
+class ProxyService(inetAddress: InetAddress, port: Int, backlog: Int, val sslContext: SSLContext = SSLContext.getDefault(), encrypted: Boolean = false,
                    threadPoolSize: Int = 10, val inspectTunnels: Boolean) : Runnable {
     companion object {
         private val AUDIT_MARKER = markerFor("AUDIT")
@@ -48,13 +48,13 @@ class ProxyService(inetAddress: InetAddress, port: Int, backlog: Int, encrypted:
 
     private val _socket: ServerSocket
     private val _threadPool: ThreadPoolExecutor
+    private var _running = false
 
     init {
         _logger.info("Creating server socket on ${inetAddress.hostAddress}:$port (backlog=$backlog)")
 
         _socket = if (encrypted) {
-            SSLServerSocketFactory.getDefault()
-                    .createServerSocket(port, backlog, inetAddress)
+            sslContext.serverSocketFactory.createServerSocket(port, backlog, inetAddress)
         } else {
             ServerSocket(port, backlog, inetAddress)
         }
@@ -88,24 +88,45 @@ class ProxyService(inetAddress: InetAddress, port: Int, backlog: Int, encrypted:
             _logger.warn("Unexpected exception on proxy thread", e)
         }
 
-        while(true) {
-            val incomingSocket = _socket.accept()
-            try {
-                _threadPool.execute(Proxy(incomingSocket,
-                        inspectTunnels,
-                        ::onTransaction,
-                        ::onClose,
-                        ::onException
-                ))
-            } catch (e: Exception) {
-                _logger.warn("Failed to start proxy thread", e)
-            }
+        _running = true
 
-            logStatus()
+        try {
+            while (_running) {
+                val incomingSocket = _socket.accept()
+
+                try {
+                    _threadPool.execute(Proxy(incomingSocket,
+                            sslContext,
+                            inspectTunnels,
+                            ::onTransaction,
+                            ::onClose,
+                            ::onException
+                    ))
+                } catch (e: Exception) {
+                    _logger.warn("Failed to start proxy thread", e)
+                }
+
+                logStatus()
+            }
+        } catch (e: Exception) {
+            if (_running) {
+                // we haven't been properly closed
+                _logger.warn("Proxy listener unexpectedly shut down", e)
+            }
         }
+
+        _logger.info("Proxy has shut down")
     }
 
     fun close() {
+        _running = false
+
+        try {
+            _socket.close()
+        } catch (e: Exception) {
+            System.err.println("Failed to close server listener: ${e.message}")
+        }
+
         _threadPool.shutdown() // Disable new tasks from being submitted
 
         try {
