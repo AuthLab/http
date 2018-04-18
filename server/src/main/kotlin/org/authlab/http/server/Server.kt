@@ -69,7 +69,7 @@ class Server(private val listeners: List<ServerListener>,
         }
     }
 
-    private fun onConnect(socket: Socket) {
+    private fun onConnect(socket: Socket, listener: ServerListener) {
         _logger.trace("Handling connection on other thread")
 
         _threadPool.execute({
@@ -83,7 +83,7 @@ class Server(private val listeners: List<ServerListener>,
                 }
 
                 if (handler != null) {
-                    val serverResponse = handle(handler, request, socket.inputStream)
+                    val serverResponse = handle(handler, request, socket.inputStream, listener.secure)
 
                     serverResponse.internalResponse
                             .write(socket.outputStream, serverResponse.bodyWriter)
@@ -103,9 +103,9 @@ class Server(private val listeners: List<ServerListener>,
         })
     }
 
-    private fun <B : Body> handle(handler: Handler<B>, request: Request, inputStream: InputStream): ServerResponse {
+    private fun <B : Body> handle(handler: Handler<B>, request: Request, inputStream: InputStream, secure: Boolean): ServerResponse {
         val body = handler.bodyReader.read(inputStream, request.headers).getBody()
-        val serverRequest = ServerRequest(request, body)
+        val serverRequest = ServerRequest(request, body, if (secure) "https" else "http")
         return handler.onRequest(serverRequest).build()
     }
 

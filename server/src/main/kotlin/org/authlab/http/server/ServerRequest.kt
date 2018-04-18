@@ -24,18 +24,19 @@
 
 package org.authlab.http.server
 
-import org.authlab.http.bodies.Body
 import org.authlab.http.Headers
 import org.authlab.http.Host
 import org.authlab.http.QueryParameters
 import org.authlab.http.Request
 import org.authlab.http.RequestLine
+import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.DelayedBody
 import org.authlab.http.client.convertBody
 
 class ServerRequest<out B : Body> internal constructor(request: Request,
-                                                       private val body: B) {
+                                                       private val body: B,
+                                                       private val scheme: String) {
     val _request = request.withBody(body)
 
     val requestLine: RequestLine
@@ -64,7 +65,7 @@ class ServerRequest<out B : Body> internal constructor(request: Request,
         get() = _request.headers
                 .getHeader("Content-Length")?.getFirstAsInt() ?: 0
 
-    fun toHar() = _request.toHar()
+    fun toHar() = _request.toHar(scheme)
 
     fun getBody(): B
             = body

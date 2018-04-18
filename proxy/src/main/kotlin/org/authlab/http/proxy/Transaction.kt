@@ -29,10 +29,11 @@ import org.authlab.http.Response
 import java.time.Instant
 
 data class Transaction(val request: Request, val response: Response,
-                       val startInstant: Instant, val stopInstant: Instant) {
+                       val startInstant: Instant, val stopInstant: Instant,
+                       val scheme: String) {
     fun toHar(): Map<String, *> {
         return mapOf(
-                "request" to request.toHar(),
+                "request" to request.toHar(scheme),
                 "response" to response.toHar(),
                 "startedDateTime" to startInstant.toString())
     }

@@ -29,11 +29,12 @@ import java.io.Closeable
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
-import javax.net.ssl.SSLServerSocketFactory
+import javax.net.ssl.SSLContext
 
 class ServerListener(val inetAddress: InetAddress, val port: Int,
                      val secure: Boolean, val backlog: Int,
-                     var onAccept: (Socket) -> Unit = {}) : Runnable, Closeable {
+                     val sslContext: SSLContext = SSLContext.getDefault(),
+                     var onAccept: (Socket, ServerListener) -> Unit = { _, _ ->}) : Runnable, Closeable {
     companion object {
         private val _logger = loggerFor<ServerListener>()
     }
@@ -49,8 +50,7 @@ class ServerListener(val inetAddress: InetAddress, val port: Int,
         _logger.info("Creating server socket on ${inetAddress.hostAddress}:$port (backlog=$backlog)")
 
         _socket = if (secure) {
-            SSLServerSocketFactory.getDefault()
-                    .createServerSocket(port, backlog, inetAddress)
+            sslContext.serverSocketFactory.createServerSocket(port, backlog, inetAddress)
         } else {
             ServerSocket(port, backlog, inetAddress)
         }
@@ -69,7 +69,7 @@ class ServerListener(val inetAddress: InetAddress, val port: Int,
 
         while (_running && !socket.isClosed) {
             try {
-                onAccept(socket.accept())
+                onAccept(socket.accept(), this)
             } catch (e: Exception) {
                 if (_running || !socket.isClosed) {
                     _logger.warn("Error processing connection", e)
@@ -97,8 +97,9 @@ class ServerListenerBuilder() {
     var port: Int = 8080
     var secure: Boolean = false
     var backlog: Int = 50
+    var sslContext: SSLContext = SSLContext.getDefault()
 
     fun build(): ServerListener {
-        return ServerListener(InetAddress.getByName(host), port, secure, backlog)
+        return ServerListener(InetAddress.getByName(host), port, secure, backlog, sslContext)
     }
 }

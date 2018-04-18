@@ -156,11 +156,12 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
         return sb.toString()
     }
 
-    fun toHar(): Map<String, *> {
+    fun toHar(scheme: String): Map<String, *> {
         val har = mutableMapOf(
                 "method" to requestLine.method,
                 "url" to requestLine.location
-                        .withHost(host ?: throw IllegalStateException("Host required for HAR"))
+                        .withHost((host ?: throw IllegalStateException("Host required for HAR"))
+                                .withScheme(scheme))
                         .withoutFragment()
                         .toString(),
                 "httpVersion" to requestLine.version,

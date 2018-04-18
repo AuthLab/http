@@ -24,25 +24,19 @@
 
 package org.authlab.http.proxy
 
-import org.slf4j.MDC
 import org.authlab.crypto.CertificateGeneratingKeyManager
-import org.authlab.http.bodies.EmptyBody
 import org.authlab.http.Header
-import org.authlab.http.Host
 import org.authlab.http.Request
 import org.authlab.http.Response
 import org.authlab.http.ResponseLine
 import org.authlab.http.bodies.ByteBodyReader
-import org.authlab.http.proxy.SimpleTunnel
-import org.authlab.http.proxy.Transaction
-import org.authlab.http.proxy.Tunnel
 import org.authlab.util.loggerFor
+import org.slf4j.MDC
 import java.net.Socket
 import java.time.Instant
 import java.util.UUID
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
-import javax.net.ssl.SSLSocketFactory
 
 typealias OnTransaction = (Transaction) -> Unit
 typealias OnClose = (incomingSocket: Socket, outgoingSocket: Socket?) -> Unit
@@ -51,6 +45,7 @@ typealias OnException = (Exception) -> Unit
 open class Proxy(private val incomingSocket: Socket,
                  private val sslContext: SSLContext = SSLContext.getDefault(),
                  private val inspectTunnels: Boolean = true,
+                 private val scheme: String = "http",
                  private val onTransaction: OnTransaction? = null,
                  private val onClose: OnClose? = null,
                  private val onException: OnException? = null) : Runnable {
@@ -106,7 +101,7 @@ open class Proxy(private val incomingSocket: Socket,
 
                     val tunneledProxy = createTunnel(incomingSocket,
                             outgoingSocket,
-                            Host(remoteHost.hostname, remoteHost.port),
+                            scheme,
                             onTransaction)
                     tunneledProxy.run()
                 } else {
@@ -125,7 +120,7 @@ open class Proxy(private val incomingSocket: Socket,
 
                     val tunneledProxy = createTunnel(encryptedIncomingSocket,
                             outgoingSocket,
-                            remoteHost.withScheme("https"),
+                            "https",
                             onTransaction)
                     tunneledProxy.run()
                 }
@@ -159,7 +154,7 @@ open class Proxy(private val incomingSocket: Socket,
                 onTransaction?.let {
                     _logger.trace("Calling on-transaction callback")
                     it(Transaction(outgoingRequest, incomingResponse,
-                            transactionStartInstant, transactionStopInstant))
+                            transactionStartInstant, transactionStopInstant, scheme))
                 }
             }
         } catch (e: Exception) {
@@ -226,18 +221,18 @@ open class Proxy(private val incomingSocket: Socket,
         return incomingResponse.withHeaders(headers)
     }
 
-    private fun createTunnel(incomingSocket: Socket, outgoingSocket: Socket, host: Host, onTransaction: OnTransaction?): Tunnel {
-        return ProxyTunnel(incomingSocket, outgoingSocket, sslContext, host, onTransaction, onException)
+    private fun createTunnel(incomingSocket: Socket, outgoingSocket: Socket, scheme: String, onTransaction: OnTransaction?): Tunnel {
+        return ProxyTunnel(incomingSocket, outgoingSocket, sslContext, scheme, onTransaction, onException)
     }
 }
 
 class ProxyTunnel(incomingSocket: Socket,
                   private val outgoingSocket: Socket,
                   sslContext: SSLContext,
-                  val host: Host,
+                  scheme: String,
                   onTransaction: OnTransaction? = null,
                   onException: OnException? = null) :
-        Proxy(incomingSocket, sslContext, false, onTransaction, null, onException), Tunnel {
+        Proxy(incomingSocket, sslContext, false, scheme, onTransaction, null, onException), Tunnel {
     companion object {
         private val _logger = loggerFor<ProxyTunnel>()
     }

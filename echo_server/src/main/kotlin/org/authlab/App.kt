@@ -27,7 +27,34 @@
 package org.authlab
 
 import org.authlab.http.echo.EchoServerBuilder
+import java.io.File
+import java.security.KeyStore
+import java.security.SecureRandom
+import javax.net.ssl.KeyManagerFactory
+import javax.net.ssl.SSLContext
 
 fun main(args: Array<String>) {
-    EchoServerBuilder().build().start()
+    val keystorePath = "./keystore.p12"
+    val password = "rootroot"
+
+    val sslContext = SSLContext.getInstance("TLS")
+
+    val keyStore = KeyStore.getInstance("PKCS12")
+    keyStore.load(File(keystorePath).inputStream(), password.toCharArray())
+
+    val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
+    keyManagerFactory.init(keyStore, password.toCharArray())
+
+    sslContext.init(keyManagerFactory.keyManagers, null, SecureRandom())
+
+    EchoServerBuilder {
+        listen {
+            port=8080
+        }
+        listen {
+            port=8443
+            secure=true
+            this.sslContext=sslContext
+        }
+    }.build().start()
 }

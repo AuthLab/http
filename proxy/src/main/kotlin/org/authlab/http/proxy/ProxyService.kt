@@ -98,6 +98,7 @@ class ProxyService(inetAddress: InetAddress, port: Int, backlog: Int, val sslCon
                     _threadPool.execute(Proxy(incomingSocket,
                             sslContext,
                             inspectTunnels,
+                            "http",
                             ::onTransaction,
                             ::onClose,
                             ::onException
