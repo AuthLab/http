@@ -19,7 +19,7 @@
             </Policies>
         </RollingFile>
 
-        <Http name="HAR" url="http://localhost:8180/api/sources/server/events">
+        <Http name="HAR" url="http://localhost:8180/api/sources/client/events">
             <MarkerFilter marker="HAR" onMatch="ACCEPT" onMismatch="DENY"/>
             <JsonMapLayout />
         </Http>

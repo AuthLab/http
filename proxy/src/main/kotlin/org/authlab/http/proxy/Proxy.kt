@@ -115,8 +115,7 @@ open class Proxy(private val incomingSocket: Socket,
                     }
                     _logger.info("Establishing encrypted tunnel")
 
-                    outgoingSocket = SSLSocketFactory.getDefault()
-                            .createSocket(remoteHost.hostname, remoteHost.port)
+                    outgoingSocket = sslContext.socketFactory.createSocket(remoteHost.hostname, remoteHost.port)
 
                     val encryptedIncomingSocket = sslContext.socketFactory
                             .createSocket(incomingSocket, null, incomingSocket.port, true) as SSLSocket
