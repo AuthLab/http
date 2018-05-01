@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
 cd "$(dirname "$0")"
-java -Dlog4j.configurationFile=log4j2.xml -jar proxy-1.0-SNAPSHOT.jar "$@"
+java -Dlog4j.configurationFile=log4j2.xml -jar lib/proxy-1.0-SNAPSHOT.jar "$@"
