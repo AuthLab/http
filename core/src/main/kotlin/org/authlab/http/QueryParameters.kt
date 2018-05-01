@@ -31,13 +31,9 @@ import java.nio.charset.StandardCharsets
 class QueryParameters(parameters: Map<String, Parameter> = mapOf()) : Parameters<QueryParameters>(parameters) {
     companion object {
         fun fromString(input: String?): QueryParameters {
-            if (input == null) {
-                return QueryParameters()
-            }
-
             var parameters = QueryParameters()
 
-            input.split("&").forEach {
+            input?.split("&")?.forEach {
                 val keyValuePair = it.split("=", limit = 2)
                         .map { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }
 
@@ -73,5 +69,5 @@ class QueryParameters(parameters: Map<String, Parameter> = mapOf()) : Parameters
             }
         }
     }.joinToString("&")
-            .let { if (it.isEmpty()) { it } else { "?" + it } }
+            .let { if (it.isEmpty()) { it } else { "?$it" } }
 }

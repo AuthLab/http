@@ -69,6 +69,12 @@ abstract class Parameters<T : Parameters<T>>(protected val parameters: Map<Strin
             parameter.toHar()
         }
     }
+
+    override fun equals(other: Any?) =
+        other is Parameters<*> && parameters == other.parameters
+
+    override fun hashCode() =
+        parameters.hashCode()
 }
 
 class Parameter(val name: String, val values: List<String> = emptyList()) {
@@ -100,6 +106,15 @@ class Parameter(val name: String, val values: List<String> = emptyList()) {
                 mapOf("name" to name, "value" to value)
             }
         }
+    }
+
+    override fun equals(other: Any?) =
+        other is Parameter && name == other.name && values == other.values
+
+    override fun hashCode(): Int {
+        var result = name.hashCode()
+        result = 31 * result + values.hashCode()
+        return result
     }
 }
 

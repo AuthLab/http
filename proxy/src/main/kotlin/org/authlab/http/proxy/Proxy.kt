@@ -25,6 +25,7 @@
 package org.authlab.http.proxy
 
 import org.authlab.crypto.CertificateGeneratingKeyManager
+import org.authlab.http.Endpoint
 import org.authlab.http.Header
 import org.authlab.http.Request
 import org.authlab.http.Response
@@ -80,24 +81,24 @@ open class Proxy(private val incomingSocket: Socket,
 
             _logger.debug("Received request: $incomingRequest")
 
+            val remoteEndpoint = incomingRequest.requestLine.location.withScheme(scheme).endpoint
+
             if ("CONNECT".equals(incomingRequest.requestLine.method, true)) {
                 _logger.debug("Sending 200 OK")
                 val okResponse = Response(ResponseLine(200, "OK"))
                 okResponse.write(incomingSocket.outputStream)
 
-                val remoteHost = incomingRequest.requestLine.location.host!!
-
                 if (!inspectTunnels) {
                     _logger.info("Establishing opaque tunnel")
 
-                    outgoingSocket = createRemoteSocket(incomingRequest)
+                    outgoingSocket = getRemoteSocket(remoteEndpoint)
 
                     val tunnel = SimpleTunnel(incomingSocket, outgoingSocket)
                     tunnel.run()
-                } else if (remoteHost.port == 80) {
+                } else if (remoteEndpoint.port == 80) {
                     _logger.info("Establishing unencrypted tunnel")
 
-                    outgoingSocket = createRemoteSocket(incomingRequest)
+                    outgoingSocket = getRemoteSocket(remoteEndpoint)
 
                     val tunneledProxy = createTunnel(incomingSocket,
                             outgoingSocket,
@@ -105,18 +106,18 @@ open class Proxy(private val incomingSocket: Socket,
                             onTransaction)
                     tunneledProxy.run()
                 } else {
-                    if (remoteHost.port != 443) {
-                        _logger.debug("Unknown remote port ${remoteHost.port}; assuming SSL/TLS")
+                    if (remoteEndpoint.port != 443) {
+                        _logger.debug("Unknown remote port ${remoteEndpoint.port}; assuming SSL/TLS")
                     }
                     _logger.info("Establishing encrypted tunnel")
 
-                    outgoingSocket = sslContext.socketFactory.createSocket(remoteHost.hostname, remoteHost.port)
+                    outgoingSocket = sslContext.socketFactory.createSocket(remoteEndpoint.hostname, remoteEndpoint.port)
 
                     val encryptedIncomingSocket = sslContext.socketFactory
                             .createSocket(incomingSocket, null, incomingSocket.port, true) as SSLSocket
                     encryptedIncomingSocket.useClientMode = false
 
-                    CertificateGeneratingKeyManager.mapSocketAndHostname(encryptedIncomingSocket, remoteHost.hostname)
+                    CertificateGeneratingKeyManager.mapSocketAndHostname(encryptedIncomingSocket, remoteEndpoint.hostname)
 
                     val tunneledProxy = createTunnel(encryptedIncomingSocket,
                             outgoingSocket,
@@ -128,7 +129,7 @@ open class Proxy(private val incomingSocket: Socket,
                 val outgoingRequest = createRequestToProxy(incomingRequest)
                 _logger.debug("Request to proxy: {}", outgoingRequest)
 
-                outgoingSocket = createRemoteSocket(incomingRequest)
+                outgoingSocket = getRemoteSocket(remoteEndpoint)
 
                 _logger.info("Proxying request '${outgoingRequest.requestLine}' to ${outgoingSocket.inetAddress}")
                 outgoingRequest.write(outgoingSocket.outputStream)
@@ -172,8 +173,8 @@ open class Proxy(private val incomingSocket: Socket,
         }
     }
 
-    protected open fun createRemoteSocket(incomingRequest: Request): Socket
-            = Socket(incomingRequest.host!!.hostname, incomingRequest.host!!.port)
+    protected open fun getRemoteSocket(endpoint: Endpoint): Socket
+            = Socket(endpoint.hostname, endpoint.port)
 
     protected open fun doClose(incomingSocket: Socket?, outgoingSocket: Socket?) {
         outgoingSocket?.also {
@@ -237,7 +238,7 @@ class ProxyTunnel(incomingSocket: Socket,
         private val _logger = loggerFor<ProxyTunnel>()
     }
 
-    override fun createRemoteSocket(incomingRequest: Request)
+    override fun getRemoteSocket(endpoint: Endpoint)
             = outgoingSocket
 
     override fun createRequestToProxy(incomingRequest: Request): Request {

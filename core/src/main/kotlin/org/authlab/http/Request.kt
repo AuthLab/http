@@ -93,7 +93,7 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
             return if (hostHeader != null) {
                 Host.fromString(hostHeader.getFirst())
             } else {
-                requestLine.location.host
+                requestLine.location.authority?.withoutAuthentication()
             }
         }
 
@@ -160,8 +160,8 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
         val har = mutableMapOf(
                 "method" to requestLine.method,
                 "url" to requestLine.location
-                        .withHost((host ?: throw IllegalStateException("Host required for HAR"))
-                                .withScheme(scheme))
+                        .withHost(host ?: throw IllegalStateException("Host required for HAR"))
+                        .withScheme(scheme)
                         .withoutFragment()
                         .toString(),
                 "httpVersion" to requestLine.version,

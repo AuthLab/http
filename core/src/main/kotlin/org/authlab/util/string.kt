@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2018 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -22,39 +22,20 @@
  * SOFTWARE.
  */
 
-@file:JvmName("App")
+package org.authlab.util
 
-package org.authlab
+import java.net.URLDecoder
+import java.net.URLEncoder
+import java.nio.charset.Charset
 
-import org.authlab.http.echo.EchoServerBuilder
-import java.io.File
-import java.security.KeyStore
-import java.security.SecureRandom
-import javax.net.ssl.KeyManagerFactory
-import javax.net.ssl.SSLContext
+fun String.toUrlEncodedString(): String =
+    this.toUrlEncodedString(Charset.defaultCharset())
 
-fun main(args: Array<String>) {
-    val keystorePath = "./keystore.p12"
-    val password = "rootroot"
+fun String.toUrlEncodedString(charset: Charset): String =
+    URLEncoder.encode(this, charset.name())
 
-    val sslContext = SSLContext.getInstance("TLS")
+fun String.toUrlDecodedString(): String =
+        this.toUrlDecodedString(Charset.defaultCharset())
 
-    val keyStore = KeyStore.getInstance("PKCS12")
-    keyStore.load(File(keystorePath).inputStream(), password.toCharArray())
-
-    val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
-    keyManagerFactory.init(keyStore, password.toCharArray())
-
-    sslContext.init(keyManagerFactory.keyManagers, null, SecureRandom())
-
-    EchoServerBuilder {
-        listen {
-            port=8081
-        }
-        listen {
-            port=8443
-            secure=true
-            this.sslContext=sslContext
-        }
-    }.build().start()
-}
+fun String.toUrlDecodedString(charset: Charset): String =
+        URLDecoder.decode(this, charset.name())

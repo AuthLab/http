@@ -24,6 +24,7 @@
 
 package org.authlab.http.client
 
+import org.authlab.http.Authority
 import org.authlab.http.Headers
 import org.authlab.http.Host
 import org.authlab.http.Location
@@ -45,7 +46,7 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
 
-class Client(val host: Host, private val socketProvider: () -> Socket, val proxy: Host? = null) : Closeable {
+class Client(val location: Location, private val socketProvider: () -> Socket, val proxy: Host? = null) : Closeable {
     companion object {
         private val _logger = loggerFor<Client>()
     }
@@ -66,9 +67,13 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
         val socket = socketProvider()
         var encryptedSocket: Socket? = null
 
-        if (proxy != null && host.scheme == "https") {
+        if (proxy != null && location.scheme == "https") {
             _logger.debug("Sending CONNECT request to proxy")
-            Request(RequestLine("CONNECT", Location(host))).write(socket.outputStream)
+
+            val host = location.host ?: throw IllegalStateException("Host information missing in location '$location'")
+
+            Request(RequestLine("CONNECT", Location(authority = Authority.fromHost(host))))
+                    .write(socket.outputStream)
 
             val connectResponse = Response.fromInputStream(socket.inputStream, ByteBodyReader())
 
@@ -174,7 +179,9 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
                 this.path = path
             }
 
-            headers = headers.withHeader("Host", client.host.hostnameAndPort)
+            val host = client.location.host ?: throw IllegalStateException("Host information missing in location '${client.location}'")
+
+            headers = headers.withHeader("Host", host.toString())
 
             if (bodyWriter !is EmptyBodyWriter) {
                 bodyWriter.contentLength?.also {
@@ -194,7 +201,8 @@ class Client(val host: Host, private val socketProvider: () -> Socket, val proxy
                 }
             }
 
-            val request = Request(RequestLine(method, Location(client.host, this.path, query)), headers)
+            val request = Request(RequestLine(method, client.location.withPath(this.path).withQuery(this.query)),
+                    headers)
 
             val response = client.execute(request, bodyWriter)
 
@@ -212,7 +220,7 @@ fun buildClient(host: String, init: ClientBuilder.() -> Unit = {}) = ClientBuild
 annotation class ClientMarker
 
 @ClientMarker
-class ClientBuilder(private val host: String) {
+class ClientBuilder(private val location: String) {
     var proxy: String? = null
     var socketFactory: SocketFactory? = null
 
@@ -221,20 +229,22 @@ class ClientBuilder(private val host: String) {
     }
 
     fun build(): Client {
-        val host = Host.fromString(this.host)
+        val location = Location.fromString(this.location)
         val proxy = this.proxy?.let { Host.fromString(it) }
 
         val socketFactory = when {
             this.socketFactory != null -> this.socketFactory!!
             proxy != null -> SocketFactory.getDefault()
-            host.scheme == "https" -> SSLSocketFactory.getDefault()
+            location.scheme == "https" -> SSLSocketFactory.getDefault()
             else -> SocketFactory.getDefault()
         }
 
+        val endpoint = location.endpoint
+
         val socketProvider: () -> Socket = {
-            (proxy ?: host).run { socketFactory.createSocket(hostname, port) }
+            (proxy ?: location).run { socketFactory.createSocket(endpoint.hostname, endpoint.port) }
         }
 
-        return Client(host, socketProvider, proxy)
+        return Client(location, socketProvider, proxy)
     }
 }

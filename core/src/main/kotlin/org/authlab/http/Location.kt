@@ -24,7 +24,20 @@
 
 package org.authlab.http
 
-data class Location(val host: Host? = null, val path: String? = null, val query: QueryParameters = QueryParameters(),
+/**
+ *                     hierarchical part
+ *         ┌───────────────────┴─────────────────────┐
+ *                     authority               path
+ *         ┌───────────────┴───────────────┐┌───┴────┐
+ *   abc://username:password@example.com:123/path/data?key=value#fragid1
+ *   └┬┘   └───────┬───────┘ └────┬────┘ └┬┘           └───┬───┘ └──┬──┘
+ * scheme  user information     host     port            query   fragment
+ *
+ * Of the ASCII character set, the characters ':', '/', '?', '#', '[', ']' and '@' are reserved for use as delimiters of the generic URI components and must be percent-encoded.
+ * ':' and '@' may appear unencoded within the path, query, and fragment; and '?' and '/' may appear unencoded as data within the query or fragment.
+ */
+data class Location(val scheme: String? = null, val authority: Authority? = null,
+                    val path: String? = null, val query: QueryParameters = QueryParameters(),
                     val fragment: String? = null, val asterisk: Boolean = false) {
     companion object {
         fun fromString(input: String): Location {
@@ -34,69 +47,99 @@ data class Location(val host: Host? = null, val path: String? = null, val query:
                 return Location(asterisk = true)
             }
 
-            var scheme: String? = null
-            val schemeAndRemainder = remainder.split("://", limit = 2)
-            if (schemeAndRemainder.size > 1) {
-                scheme = schemeAndRemainder[0]
-                remainder = schemeAndRemainder[1]
-            }
+            // 1. Split on fragment (may contain any character)
+            val fragmentSplitIndex = remainder.indexOf("#")
+            val fragment: String?
 
-            val pathStart = remainder.indexOf("/")
-
-            var host: Host? = null
-            var fragment: String? = null
-            var query: String? = null
-            var path: String? = null
-
-            if (pathStart != -1) {
-                val authority = remainder.substring(0, pathStart).takeIf { it.isNotBlank() }
-                if (authority != null) {
-                    host = Host.fromString(authority)
-                }
-
-                remainder = remainder.substring(pathStart)
-
-                val remainderAndFragment = remainder.split("#", limit = 2)
-                if (remainderAndFragment.size > 1) {
-                    remainder = remainderAndFragment[0]
-                    fragment = remainderAndFragment[1]
-                }
-
-                val remainderAndQuery = remainder.split("?", limit = 2)
-                if (remainderAndQuery.size > 1) {
-                    remainder = remainderAndQuery[0]
-                    query = remainderAndQuery[1]
-                }
-
-                path = remainder
+            if (fragmentSplitIndex == -1) {
+                fragment = null
             } else {
-                host = Host.fromString(remainder)
+                fragment = remainder.substring(fragmentSplitIndex).removePrefix("#")
+                remainder = remainder.substring(0, fragmentSplitIndex)
             }
 
-            if (scheme != null) {
-                host = host?.withScheme(scheme)
+            // 2. Split on scheme
+            val schemeSplitIndex = remainder.indexOf("://")
+            val scheme: String?
+
+            if (schemeSplitIndex == -1) {
+                scheme = null
+            } else {
+                scheme = remainder.substring(0, schemeSplitIndex)
+                remainder = remainder.substring(schemeSplitIndex).removePrefix("://")
             }
 
-            return Location(host, path, QueryParameters.fromString(query), fragment)
+            // 3. Split on query
+            val querySplitIndex = remainder.indexOf("?")
+            val query: String?
+
+            if (querySplitIndex == -1) {
+                query = null
+            } else {
+                query = remainder.substring(querySplitIndex).removePrefix("?")
+
+                remainder = remainder.substring(0, querySplitIndex)
+            }
+
+            // 4. Split on path
+            val pathSplitIndex = remainder.indexOf("/")
+            val path: String?
+
+            if (pathSplitIndex == -1) {
+                path = null
+            } else {
+                path = remainder.substring(pathSplitIndex)
+                remainder = remainder.substring(0, pathSplitIndex)
+            }
+
+            val authority = Authority.fromString(remainder)
+
+            return Location(scheme, authority, path, QueryParameters.fromString(query), fragment)
         }
     }
+
+    val host: Host?
+        get() {
+            return authority?.withoutAuthentication()
+        }
+
+    val endpoint: Endpoint
+        get() {
+            return if (authority == null) {
+                throw IllegalStateException("Authority component required to create endpoint")
+            } else if (authority.port != null) {
+                Endpoint(authority.hostname, authority.port)
+            } else {
+                when (scheme) {
+                    "http" -> Endpoint(authority.hostname, 80)
+                    "https" -> Endpoint(authority.hostname, 443)
+                    else -> throw IllegalStateException("No scheme to infer endpoint port from")
+                }
+            }
+        }
 
     val safePath
         get() = path ?: "/"
 
-    fun withHost(host: Host) = Location(host, path, query, fragment, asterisk)
+    fun withScheme(scheme: String) = Location(scheme, authority, path, query, fragment, asterisk)
 
-    fun withoutHost() = Location(null, path, query, fragment, asterisk)
+    fun withoutScheme() = Location(null, authority, path, query, fragment, asterisk)
 
-    fun withPath(path: String) = Location(host, path, query, fragment, asterisk)
+    fun withAuthority(authority: Authority) = Location(scheme, authority, path, query, fragment, asterisk)
 
-    fun withoutPath() = Location(host, null, query, fragment, asterisk)
+    fun withoutAuthority() = Location(scheme, null, path, query, fragment, asterisk)
 
-    fun withQuery(query: QueryParameters) = Location(host, path, query, fragment, asterisk)
+    fun withHost(host: Host) = Location(scheme, Authority(host.hostname, host.port), path, query, fragment, asterisk)
 
-    fun withFragment(fragment: String) = Location(host, path, query, fragment, asterisk)
+    fun withPath(path: String) = Location(scheme, authority, path, query, fragment, asterisk)
 
-    fun withoutFragment() = Location(host, path, query, null, asterisk)
+    fun withoutPath() = Location(scheme, authority, null, query, fragment, asterisk)
+
+    fun withQuery(query: QueryParameters) = Location(scheme, authority, path, query, fragment, asterisk)
+
+    fun withFragment(fragment: String) = Location(scheme, authority, path, query, fragment, asterisk)
+
+    fun withoutFragment() = Location(scheme, authority, path, query, null, asterisk)
 
     override fun toString(): String {
         if (asterisk) {
@@ -105,13 +148,17 @@ data class Location(val host: Host? = null, val path: String? = null, val query:
 
         val sb = StringBuilder()
 
-        if (host != null) {
-            sb.append(host.toString())
+        if (scheme != null) {
+            sb.append(scheme).append("://")
+        }
+
+        if (authority != null) {
+            sb.append(authority.toString())
         }
 
         if (path != null) {
             sb.append(path)
-        } else if (host == null) {
+        } else if (scheme == null && authority == null) {
             sb.append(safePath)
         }
 

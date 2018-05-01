@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2018 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,45 +24,4 @@
 
 package org.authlab.http
 
-import org.authlab.util.toUrlDecodedString
-
-open class Host(val hostname: String, val port: Int? = null) {
-    companion object {
-        fun fromString(input: String): Host {
-            val portSplitIndex = input.lastIndexOf(":")
-
-            val hostname: String
-            val port: Int?
-
-            if (portSplitIndex == -1) {
-                hostname = input
-                port = null
-            } else {
-                if (input.length <= portSplitIndex + 1) {
-                    throw IllegalArgumentException("No port after ':'")
-                }
-
-                hostname = input.substring(0, portSplitIndex)
-                port = input.substring(portSplitIndex +1).toInt()
-            }
-
-            return Host(hostname.toUrlDecodedString(), port)
-        }
-    }
-
-    fun withHostname(hostname: String) = Host(hostname, port)
-
-    fun withPort(port: Int) = Host(hostname, port)
-
-    override fun toString(): String {
-        val sb = StringBuilder()
-
-        sb.append(hostname)
-
-        if (port != null) {
-            sb.append(":").append(port)
-        }
-
-        return sb.toString()
-    }
-}
+data class Endpoint(val hostname: String, val port: Int)
