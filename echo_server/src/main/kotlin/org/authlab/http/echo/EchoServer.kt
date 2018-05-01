@@ -51,7 +51,7 @@ class EchoServerBuilder() {
     fun build(): Server {
         _serverBuilder.default { request ->
             status { 200 to "OK" }
-            body { JsonBodyWriter(request.toHar()) }
+            body { JsonBodyWriter(request.toHar(), pretty = true) }
         }
 
         return _serverBuilder.build()

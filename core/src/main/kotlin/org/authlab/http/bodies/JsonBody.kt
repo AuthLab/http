@@ -25,6 +25,7 @@
 package org.authlab.http.bodies
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 
 class JsonBody<out T>(val json: T) : Body {
     override val writer: BodyWriter
@@ -47,9 +48,16 @@ class JsonBodyReader : AbstractTextBodyReader<SerializedJsonBody>() {
     override fun getBody() = SerializedJsonBody(getTextValue())
 }
 
-class JsonBodyWriter(val data: Any?) :
-        TextBodyWriter(_gson.toJson(data), "application/json") {
+class JsonBodyWriter(val data: Any?, pretty: Boolean = false) :
+        TextBodyWriter(getSerializer(pretty).toJson(data), "application/json") {
     companion object {
         private val _gson = Gson()
+        private val _prettyGson = GsonBuilder().setPrettyPrinting().create()
+
+        private fun getSerializer(pretty: Boolean) = if (pretty) {
+            _prettyGson
+        } else {
+            _gson
+        }
     }
 }
