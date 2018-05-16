@@ -60,7 +60,7 @@ class ServerRequest<out B : Body> internal constructor(request: Request,
         get() = _request.headers
 
     val cookies: Cookies
-        get() = Cookies.fromRequestHeaders(_request.headers)
+        get() = Cookies.fromRequestHeaders(headers)
 
     val contentType: String?
         get() = _request.headers

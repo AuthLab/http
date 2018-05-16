@@ -26,8 +26,8 @@ package org.authlab.http.server
 
 import java.util.regex.Pattern
 
-open class EntryPoint(val entryPoint: String) {
-    val entryPointPattern: Pattern by lazy {
-        Pattern.compile(entryPoint.split("*").joinToString(".*") { Regex.escape(it) })
+open class EntryPoint(val path: String) {
+    val pathPattern: Pattern by lazy {
+        Pattern.compile(path.split("*").joinToString(".*") { Regex.escape(it) })
     }
 }

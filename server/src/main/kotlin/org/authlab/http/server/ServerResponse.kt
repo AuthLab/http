@@ -24,6 +24,7 @@
 
 package org.authlab.http.server
 
+import org.authlab.http.Cookies
 import org.authlab.http.Headers
 import org.authlab.http.Response
 import org.authlab.http.ResponseLine
@@ -36,6 +37,9 @@ class ServerResponse internal constructor(internal val internalResponse: Respons
 
     val headers: Headers
         get() = internalResponse.headers
+
+    val cookies: Cookies
+        get() = Cookies.fromResponseHeaders(headers)
 
     val statusCode: Int
         get() = internalResponse.responseLine.statusCode

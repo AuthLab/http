@@ -85,7 +85,7 @@ class Server(private val listeners: List<ServerListener>,
 
                 // Find handler by path
                 val handler = handlers.firstOrNull {
-                    it.entryPointPattern.matcher(request.requestLine.location.safePath).matches()
+                    it.pathPattern.matcher(request.requestLine.location.safePath).matches()
                 }
 
                 var serverResponse = if (handler != null) {
@@ -94,7 +94,7 @@ class Server(private val listeners: List<ServerListener>,
                     ServerResponse(Response(ResponseLine(404, "Not Found")), EmptyBodyWriter())
                 }
 
-                transformers.filter { it.entryPointPattern.matcher(request.requestLine.location.safePath).matches() }
+                transformers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
                         .forEach { transformer ->
                             _logger.trace("Transforming response with {}", transformer)
 
@@ -119,7 +119,7 @@ class Server(private val listeners: List<ServerListener>,
         val body = handler.bodyReader.read(inputStream, request.headers).getBody()
         val serverRequest = ServerRequest(request, context, body, if (secure) "https" else "http")
 
-        filters.filter { it.entryPointPattern.matcher(request.requestLine.location.safePath).matches() }
+        filters.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
                 .forEach { filter ->
                     _logger.trace("Filtering request by {}", filter)
 
