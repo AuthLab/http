@@ -24,7 +24,8 @@
 
 package org.authlab.http
 
-class Cookies(val cookies: List<Cookie> = listOf()) {
+class Cookies(private val cookies: Map<String, Cookie> = mapOf()) :
+        Map<String, Cookie> by cookies {
     companion object {
         fun fromRequestHeaders(headers: Headers): Cookies {
             return Cookies(headers.getHeader("Cookie")?.values
@@ -33,17 +34,21 @@ class Cookies(val cookies: List<Cookie> = listOf()) {
                                 .map { it.trim() }
                                 .filter { it.isNotEmpty() }
                                 .map { Cookie.fromString(it) }
-                    } ?: listOf())
+                    }
+                    ?.map { it.name to it }
+                    ?.toMap() ?: mapOf())
         }
 
         fun fromResponseHeaders(headers: Headers): Cookies {
             return Cookies(headers.getHeader("Set-Cookie")?.values
                     ?.filter { it.isNotEmpty() }
-                    ?.map { Cookie.fromString(it) } ?: listOf())
+                    ?.map { Cookie.fromString(it) }
+                    ?.map { it.name to it }
+                    ?.toMap() ?: mapOf())
         }
     }
 
     fun toHar(): List<*> {
-        return cookies.map { it.toHar() }
+        return cookies.map { it.value.toHar() }
     }
 }

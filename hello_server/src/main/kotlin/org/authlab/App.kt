@@ -39,8 +39,8 @@ fun main(args: Array<String>) {
         filter {
             onRequest { request, context ->
                 context.data["transaction_id"] = UUID.randomUUID()
-                context.data["session_id"] = request.cookies.cookies
-                        .firstOrNull()?.value ?: UUID.randomUUID()
+                context.data["session_id"] = request.cookies["session"]
+                        ?.value ?: UUID.randomUUID()
                 null
             }
         }

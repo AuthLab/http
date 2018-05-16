@@ -24,7 +24,8 @@
 
 package org.authlab.http
 
-class Headers(val headers: Map<String, Header> = emptyMap()) {
+class Headers(private val headers: Map<String, Header> = emptyMap()) :
+        Map<String, Header> by headers {
     fun withHeader(name: String, value: String): Headers {
         return withHeader(Header(name, value))
     }
@@ -57,7 +58,7 @@ class Headers(val headers: Map<String, Header> = emptyMap()) {
         return Headers(mutableHeaders)
     }
 
-    operator fun get(name: String): Header?
+    override operator fun get(name: String): Header?
             = getHeader(name)
 
     fun getHeader(name: String): Header?
