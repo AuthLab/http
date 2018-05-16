@@ -24,6 +24,7 @@
 
 package org.authlab.http.server
 
+import org.authlab.http.Cookies
 import org.authlab.http.Headers
 import org.authlab.http.Host
 import org.authlab.http.QueryParameters
@@ -35,6 +36,7 @@ import org.authlab.http.bodies.DelayedBody
 import org.authlab.http.client.convertBody
 
 class ServerRequest<out B : Body> internal constructor(request: Request,
+                                                       val context: Context,
                                                        private val body: B,
                                                        private val scheme: String) {
     val _request = request.withBody(body)
@@ -56,6 +58,9 @@ class ServerRequest<out B : Body> internal constructor(request: Request,
 
     val headers: Headers
         get() = _request.headers
+
+    val cookies: Cookies
+        get() = Cookies.fromRequestHeaders(_request.headers)
 
     val contentType: String?
         get() = _request.headers

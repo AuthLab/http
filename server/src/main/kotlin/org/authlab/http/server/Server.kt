@@ -29,6 +29,7 @@ import org.authlab.http.Response
 import org.authlab.http.ResponseLine
 import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.EmptyBodyWriter
 import org.authlab.http.bodies.TextBody
 import org.authlab.http.bodies.TextBodyReader
 import org.authlab.util.loggerFor
@@ -41,6 +42,8 @@ import java.util.concurrent.TimeUnit
 
 class Server(private val listeners: List<ServerListener>,
              private val handlers: List<Handler<*>> = emptyList(),
+             private val filters: List<Filter> = emptyList(),
+             private val transformers: List<Transformer> = emptyList(),
              threadPoolSize: Int = 50) : Closeable {
     companion object {
         private val _logger = loggerFor<Server>()
@@ -78,19 +81,28 @@ class Server(private val listeners: List<ServerListener>,
             try {
                 val request = Request.fromInputStreamWithoutBody(socket.inputStream)
 
+                val context = MutableContext()
+
+                // Find handler by path
                 val handler = handlers.firstOrNull {
                     it.entryPointPattern.matcher(request.requestLine.location.safePath).matches()
                 }
 
-                if (handler != null) {
-                    val serverResponse = handle(handler, request, socket.inputStream, listener.secure)
-
-                    serverResponse.internalResponse
-                            .write(socket.outputStream, serverResponse.bodyWriter)
+                var serverResponse = if (handler != null) {
+                    handle(handler, request, context, socket.inputStream, listener.secure)
                 } else {
-                    Response(ResponseLine(404, "Not Found"))
-                            .write(socket.outputStream)
+                    ServerResponse(Response(ResponseLine(404, "Not Found")), EmptyBodyWriter())
                 }
+
+                transformers.filter { it.entryPointPattern.matcher(request.requestLine.location.safePath).matches() }
+                        .forEach { transformer ->
+                            _logger.trace("Transforming response with {}", transformer)
+
+                            serverResponse = transformer.onResponse(serverResponse, context)
+                        }
+
+                serverResponse.internalResponse
+                        .write(socket.outputStream, serverResponse.bodyWriter)
             } catch (e: Exception) {
                 _logger.warn("Error processing request", e)
 
@@ -103,9 +115,23 @@ class Server(private val listeners: List<ServerListener>,
         })
     }
 
-    private fun <B : Body> handle(handler: Handler<B>, request: Request, inputStream: InputStream, secure: Boolean): ServerResponse {
+    private fun <B : Body> handle(handler: Handler<B>, request: Request, context: MutableContext, inputStream: InputStream, secure: Boolean): ServerResponse {
         val body = handler.bodyReader.read(inputStream, request.headers).getBody()
-        val serverRequest = ServerRequest(request, body, if (secure) "https" else "http")
+        val serverRequest = ServerRequest(request, context, body, if (secure) "https" else "http")
+
+        filters.filter { it.entryPointPattern.matcher(request.requestLine.location.safePath).matches() }
+                .forEach { filter ->
+                    _logger.trace("Filtering request by {}", filter)
+
+                    val filterResponse = filter.onRequest(serverRequest, context)
+                    if (filterResponse != null) {
+                        _logger.info("Response created by filter {}", filter)
+                        return filterResponse
+                    }
+                }
+
+        _logger.trace("Handling request by {}", handler)
+
         return handler.onRequest(serverRequest).build()
     }
 
@@ -148,6 +174,8 @@ class ServerBuilder constructor() {
     var threadPoolSize: Int = 100
 
     private val _listenerBuilders = mutableListOf<ServerListenerBuilder>()
+    private val _filterBuilders = mutableListOf<FilterBuilder>()
+    private val _transformerBuilders = mutableListOf<TransformerBuilder>()
     private val _handlerBuilders = mutableListOf<HandlerBuilder<*, *>>()
     private var _defaultHandlerBuilder: HandlerBuilder<*, *>? = null
 
@@ -157,6 +185,14 @@ class ServerBuilder constructor() {
 
     fun listen(init: ServerListenerBuilder.() -> Unit) {
         _listenerBuilders.add(ServerListenerBuilder(init))
+    }
+
+    fun filter(init: FilterBuilder.() -> Unit) {
+        _filterBuilders.add(FilterBuilder(init))
+    }
+
+    fun transform(init: TransformerBuilder.() -> Unit) {
+        _transformerBuilders.add(TransformerBuilder(init))
     }
 
     fun <R : BodyReader<B>, B : Body> handleCallback(entryPoint: String, bodyReader: R, handle: (ServerRequest<B>) -> ServerResponseBuilder) {
@@ -205,11 +241,15 @@ class ServerBuilder constructor() {
             listeners.add(ServerListenerBuilder().build()) // Construct a default listener
         }
 
+        val filters = _filterBuilders.map(FilterBuilder::build)
+
+        val transformers = _transformerBuilders.map(TransformerBuilder::build)
+
         val handlers = _handlerBuilders.map(HandlerBuilder<*, *>::build)
                 .toMutableList()
 
         _defaultHandlerBuilder?.apply { handlers.add(build()) }
 
-        return Server(listeners, handlers, threadPoolSize)
+        return Server(listeners, handlers, filters, transformers, threadPoolSize)
     }
 }

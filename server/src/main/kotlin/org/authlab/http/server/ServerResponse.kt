@@ -61,6 +61,14 @@ class ServerResponseBuilder() {
         init()
     }
 
+    constructor(other: ServerResponse, init: ServerResponseBuilder.() -> Unit) : this() {
+        _statusLine = other.responseLine
+        _headers = other.headers
+        _bodyWriter = other.bodyWriter
+
+        init()
+    }
+
     fun status(init: () -> Pair<Int, String>) {
         _statusLine = init().run { ResponseLine(first, second) }
     }
@@ -77,6 +85,11 @@ class ServerResponseBuilder() {
     fun build(): ServerResponse {
         val statusLine = _statusLine ?: throw IllegalStateException("No statusLine on server response")
         val bodyWriter = _bodyWriter
+
+        _headers = _headers.withoutHeaders("Content-Length")
+                .withoutHeaders("Content-Type")
+                .withoutHeaders("Content-Encoding")
+                .withoutHeaders("Transfer-Encoding")
 
         if (bodyWriter !is EmptyBodyWriter) {
             bodyWriter.contentLength?.also {

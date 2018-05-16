@@ -12,6 +12,9 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/echo_server/echo_server.iml" filepath="$PROJECT_DIR$/.idea/modules/echo_server/echo_server.iml" group="echo_server" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/echo_server/echo_server_main.iml" filepath="$PROJECT_DIR$/.idea/modules/echo_server/echo_server_main.iml" group="echo_server" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/echo_server/echo_server_test.iml" filepath="$PROJECT_DIR$/.idea/modules/echo_server/echo_server_test.iml" group="echo_server" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/hello_server.iml" filepath="$PROJECT_DIR$/.idea/modules/hello_server.iml" group="hello_server" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/hello_server/hello_server_main.iml" filepath="$PROJECT_DIR$/.idea/modules/hello_server/hello_server_main.iml" group="hello_server" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/hello_server/hello_server_test.iml" filepath="$PROJECT_DIR$/.idea/modules/hello_server/hello_server_test.iml" group="hello_server" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/proxy/proxy.iml" filepath="$PROJECT_DIR$/.idea/modules/proxy/proxy.iml" group="proxy" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/proxy/proxy_main.iml" filepath="$PROJECT_DIR$/.idea/modules/proxy/proxy_main.iml" group="proxy" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/proxy/proxy_test.iml" filepath="$PROJECT_DIR$/.idea/modules/proxy/proxy_test.iml" group="proxy" />

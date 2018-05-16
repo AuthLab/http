@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2018 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,40 +24,26 @@
 
 package org.authlab.http.server
 
-import org.authlab.http.bodies.Body
-import org.authlab.http.bodies.BodyReader
+typealias TransformerCallback = (ServerResponse, Context) -> ServerResponse
 
-typealias HandlerCallback<B> = (ServerRequest<B>) -> ServerResponseBuilder
+class Transformer(entryPoint: String, val onResponse: TransformerCallback) : EntryPoint(entryPoint)
 
-class Handler<B : Body>(entryPoint: String, val onRequest: HandlerCallback<B>, val bodyReader: BodyReader<B>) : EntryPoint(entryPoint)
+class TransformerBuilder private constructor() {
+    var entryPoint: String = "/*"
 
-@ServerMarker
-class HandlerBuilder<R : BodyReader<B>, B : Body> private constructor(val bodyReader: R) {
-    var entryPoint: String = "/"
+    private var _onResponse: TransformerCallback? = null
 
-    private var _onRequest: HandlerCallback<B>? = null
-
-    constructor(bodyReader: R, init: HandlerBuilder<R, B>.() -> Unit) : this(bodyReader) {
+    constructor(init: TransformerBuilder.() -> Unit) : this() {
         init()
     }
 
-    fun onRequest(init: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
-        _onRequest = { request ->
-            val serverResponseBuilder = ServerResponseBuilder()
-            serverResponseBuilder.init(request)
-            serverResponseBuilder
-        }
+    fun onResponse(callback: TransformerCallback) {
+        _onResponse = callback
     }
 
-    fun onRequest(handle: HandlerCallback<B>) {
-        _onRequest = { request ->
-            handle(request)
-        }
-    }
+    fun build(): Transformer {
+        val onResponse = _onResponse ?: throw IllegalStateException("onResponse not defined on Transformer")
 
-    fun build(): Handler<B> {
-        val onRequest = _onRequest ?: throw IllegalStateException("onRequest not defined on Handler")
-
-        return Handler(entryPoint, onRequest, bodyReader)
+        return Transformer(entryPoint, onResponse)
     }
 }
