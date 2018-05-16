@@ -29,6 +29,7 @@ import org.authlab.http.Response
 import org.authlab.http.ResponseLine
 import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.ByteBodyReader
 import org.authlab.http.bodies.EmptyBodyWriter
 import org.authlab.http.bodies.TextBody
 import org.authlab.http.bodies.TextBodyReader
@@ -39,6 +40,7 @@ import java.net.Socket
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 class Server(private val listeners: List<ServerListener>,
              private val handlers: List<Handler<*>> = emptyList(),
@@ -88,17 +90,23 @@ class Server(private val listeners: List<ServerListener>,
                     it.pathPattern.matcher(request.requestLine.location.safePath).matches()
                 }
 
-                var serverResponse = if (handler != null) {
-                    handle(handler, request, context, socket.inputStream, listener.secure)
+                val serverRequest: ServerRequest<*>
+                var serverResponse: ServerResponse
+
+                if (handler != null) {
+                    val requestResponsePair = handle(handler, request, context, socket.inputStream, listener.secure)
+                    serverRequest = requestResponsePair.first
+                    serverResponse = requestResponsePair.second
                 } else {
-                    ServerResponse(Response(ResponseLine(404, "Not Found")), EmptyBodyWriter())
+                    serverRequest = ServerRequest(request, context, ByteBodyReader().read(socket.inputStream, request.headers).getBody(), if (listener.secure) "https" else "http")
+                    serverResponse = ServerResponse(Response(ResponseLine(404, "Not Found")), EmptyBodyWriter())
                 }
 
                 transformers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
                         .forEach { transformer ->
                             _logger.trace("Transforming response with {}", transformer)
 
-                            serverResponse = transformer.onResponse(serverResponse, context)
+                            serverResponse = transformer.onResponse(serverRequest, serverResponse, context)
                         }
 
                 serverResponse.internalResponse
@@ -115,7 +123,8 @@ class Server(private val listeners: List<ServerListener>,
         })
     }
 
-    private fun <B : Body> handle(handler: Handler<B>, request: Request, context: MutableContext, inputStream: InputStream, secure: Boolean): ServerResponse {
+    private fun <B : Body> handle(handler: Handler<B>, request: Request, context: MutableContext, inputStream: InputStream, secure: Boolean):
+            Pair<ServerRequest<B>, ServerResponse> {
         val body = handler.bodyReader.read(inputStream, request.headers).getBody()
         val serverRequest = ServerRequest(request, context, body, if (secure) "https" else "http")
 
@@ -126,13 +135,13 @@ class Server(private val listeners: List<ServerListener>,
                     val filterResponse = filter.onRequest(serverRequest, context)
                     if (filterResponse != null) {
                         _logger.info("Response created by filter {}", filter)
-                        return filterResponse
+                        return serverRequest to filterResponse
                     }
                 }
 
         _logger.trace("Handling request by {}", handler)
 
-        return handler.onRequest(serverRequest).build()
+        return serverRequest to handler.onRequest(serverRequest).build()
     }
 
     override fun close() {

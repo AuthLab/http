@@ -24,7 +24,7 @@
 
 package org.authlab.http.server
 
-typealias TransformerCallback = (ServerResponse, Context) -> ServerResponse
+typealias TransformerCallback = (ServerRequest<*>, ServerResponse, Context) -> ServerResponse
 
 class Transformer(entryPoint: String, val onResponse: TransformerCallback) : EntryPoint(entryPoint)
 

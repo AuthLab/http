@@ -54,13 +54,15 @@ fun main(args: Array<String>) {
             }
         }
         transform {
-            onResponse { response, context ->
+            onResponse { request, response, context ->
                 ServerResponseBuilder(response) {
                     context.data["transaction_id"]?.also {
                         header { "Transaction" to "$it" }
                     }
                     context.data["session_id"]?.also {
-                        header { "Set-Cookie" to "session=$it" }
+                        if (request.cookies["session"]?.value != it) {
+                            header { "Set-Cookie" to "session=$it" }
+                        }
                     }
                 }.build()
             }
