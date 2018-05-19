@@ -26,9 +26,9 @@ package org.authlab.http.bodies
 
 import java.nio.charset.StandardCharsets
 
-open class TextBody(val string: String) : Body {
+open class TextBody(val text: String) : Body {
     override val writer: BodyWriter
-        get() = TextBodyWriter(string)
+        get() = TextBodyWriter(text)
 }
 
 abstract class AbstractTextBodyReader<out B : Body> : AbstractByteBodyReader<B>() {

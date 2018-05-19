@@ -24,5 +24,74 @@
 
 package org.authlab.http.hello
 
-class HelloServerBuilder() {
+import org.authlab.http.Cookie
+import org.authlab.http.bodies.TextBodyWriter
+import org.authlab.http.server.Server
+import org.authlab.http.server.ServerBuilder
+import org.authlab.http.server.ServerListenerBuilder
+import org.authlab.http.server.ServerResponseBuilder
+import java.time.Instant
+import java.util.UUID
+
+class HelloServerBuilder private constructor() {
+    private val serverBuilder = ServerBuilder {
+        filter {
+            onRequest { request, context ->
+                context.data["transaction_id"] = UUID.randomUUID()
+                context.data["session_id"] = request.cookies["session"]
+                        ?.value ?: UUID.randomUUID()
+                null
+            }
+        }
+        filter {
+            entryPoint = "/reject"
+            onRequest { _, _ ->
+                ServerResponseBuilder {
+                    status(400 to "Bad Request")
+                    body(TextBodyWriter("rejected"))
+                }.build()
+            }
+        }
+        transform {
+            onResponse { request, response, context ->
+                ServerResponseBuilder(response) {
+                    context.data["transaction_id"]?.also {
+                        header("Transaction" to "$it")
+                    }
+                    context.data["session_id"]?.also {
+                        if (request.cookies["session"]?.value != it) {
+                            cookie(Cookie("session", "$it", path = request.path,
+                                    httpOnly = true, expires = Instant.now().plusSeconds(60)))
+                        }
+                    }
+                }.build()
+            }
+        }
+        default { request ->
+            val sb = StringBuilder()
+            sb.append("hello")
+            request.context.data.forEach { key, value ->
+                sb.append('\n').append(key).append('=').append(value)
+            }
+
+            status(200 to "OK")
+            body(TextBodyWriter(sb.toString()))
+        }
+        handle("/foo") { _ ->
+            status(200 to "OK")
+            body(TextBodyWriter("hello foo"))
+        }
+    }
+
+    constructor(init: HelloServerBuilder.() -> Unit) : this() {
+        init()
+    }
+
+    fun listen(init: ServerListenerBuilder.() -> Unit) {
+        serverBuilder.listen(init)
+    }
+
+    fun build(): Server {
+        return serverBuilder.build()
+    }
 }

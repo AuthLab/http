@@ -22,10 +22,11 @@
  * SOFTWARE.
  */
 
-import io.kotlintest.ProjectConfig
+import io.kotlintest.AbstractProjectConfig
 import org.authlab.crypto.setupDefaultSslContext
 
-object TestConfig : ProjectConfig() {
+@Suppress("unused")
+object TestConfig : AbstractProjectConfig() {
     override fun beforeAll() {
         setupDefaultSslContext()
     }

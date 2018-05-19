@@ -24,8 +24,8 @@
 
 package org.authlab.http.client
 
-import io.kotlintest.matchers.shouldBe
-import io.kotlintest.matchers.shouldNotBe
+import io.kotlintest.shouldBe
+import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.http.bodies.JsonBodyReader
 import org.authlab.http.bodies.TextBodyWriter
@@ -53,7 +53,7 @@ class ClientIntegrationSpec : StringSpec() {
         }
     }.build().also { it.start() })
 
-    override val oneInstancePerTest = false
+    override fun isInstancePerTest() = false
 
     init {
         "it should be possible to make a simple GET request" {
@@ -236,7 +236,7 @@ class ClientIntegrationSpec : StringSpec() {
                     }
         }
 
-        "it should be possible to make a simple proxied GET request" {
+        "it should be possible to make a simple proxied GET request".config(enabled = false) {
             buildClient("http://localhost:$_serverPort") {
                 proxy = "localhost:8080"
             }.use { client ->
@@ -258,9 +258,9 @@ class ClientIntegrationSpec : StringSpec() {
                         "by=/127.0.0.1:8080; for=${client.socket.localSocketAddress}"
                 headers.find { it["name"] == "Proxy-Token" }!!["value"] shouldNotBe null
             }
-        }.config(enabled = false)
+        }
 
-        "it should be possible to make an encrypted GET request through a proxy tunnel" {
+        "it should be possible to make an encrypted GET request through a proxy tunnel".config(enabled = false) {
             buildClient("https://localhost:$_encryptedServerPort") {
                 proxy = "localhost:8080"
             }.use { client ->
@@ -282,7 +282,7 @@ class ClientIntegrationSpec : StringSpec() {
                         "by=/127.0.0.1:8080; for=${client.socket.localSocketAddress}"
                 headers.find { it["name"] == "Proxy-Token" }!!["value"] shouldNotBe null
             }
-        }.config(enabled = false)
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -299,7 +299,7 @@ class ClientIntegrationSpec : StringSpec() {
         response.headers.getHeader("Content-Type")!!.getFirst() shouldBe "application/json"
 
         val jsonBody = response.getBody(JsonBodyReader())
-        println(jsonBody.string)
+        println(jsonBody.text)
 
         return jsonBody.getTypedValue()
     }

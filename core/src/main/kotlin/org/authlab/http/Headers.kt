@@ -60,8 +60,8 @@ class Headers private constructor (private val headers: Map<String, Header>) :
         return Headers(mutableHeaders)
     }
 
-    override operator fun get(name: String): Header?
-            = getHeader(name)
+    override operator fun get(key: String): Header?
+            = getHeader(key)
 
     fun getHeader(name: String): Header?
             = headers[name.toUpperCase()]

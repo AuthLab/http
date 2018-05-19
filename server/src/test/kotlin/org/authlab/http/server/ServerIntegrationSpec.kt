@@ -24,7 +24,7 @@
 
 package org.authlab.http.server
 
-import io.kotlintest.matchers.shouldBe
+import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.crypto.setupDefaultSslContext
 import org.authlab.http.bodies.DelayedBodyReader
@@ -36,7 +36,7 @@ import org.authlab.http.client.postForm
 import org.authlab.util.randomPort
 
 class ServerIntegrationSpec : StringSpec() {
-    override val oneInstancePerTest = false
+    override fun isInstancePerTest() = false
 
     init {
         setupDefaultSslContext()
@@ -86,7 +86,7 @@ class ServerIntegrationSpec : StringSpec() {
                         .use { client ->
                             val response = client.request().get("/foo")
                             response.responseLine.statusCode shouldBe 200
-                            response.getBody(TextBodyReader()).string shouldBe "bar"
+                            response.getBody(TextBodyReader()).text shouldBe "bar"
                         }
             }
         }
@@ -122,14 +122,14 @@ class ServerIntegrationSpec : StringSpec() {
                         .use { client ->
                             val okResponse = client.request().get("/do/re")
                             okResponse.responseLine.statusCode shouldBe 200
-                            okResponse.getBody(TextBodyReader()).string shouldBe "/do/*"
+                            okResponse.getBody(TextBodyReader()).text shouldBe "/do/*"
                         }
 
                 buildClient("localhost:$serverPort")
                         .use { client ->
                             val okResponse = client.request().get("/do/re/mi")
                             okResponse.responseLine.statusCode shouldBe 200
-                            okResponse.getBody(TextBodyReader()).string shouldBe "/do/*/mi"
+                            okResponse.getBody(TextBodyReader()).text shouldBe "/do/*/mi"
                         }
             }
         }
@@ -147,7 +147,7 @@ class ServerIntegrationSpec : StringSpec() {
                     val body = request.getBody()
 
                     status { 200 to "OK" }
-                    body { TextBodyWriter(body.string.toUpperCase()) }
+                    body { TextBodyWriter(body.text.toUpperCase()) }
                 }
 
                 handle("/form", FormBodyReader()) { request ->
@@ -161,7 +161,7 @@ class ServerIntegrationSpec : StringSpec() {
                     val body = request.getBody(TextBodyReader())
 
                     status { 200 to "OK" }
-                    body { TextBodyWriter(body.string.toUpperCase()) }
+                    body { TextBodyWriter(body.text.toUpperCase()) }
                 }
             }.also { it.start() }
 
@@ -171,7 +171,7 @@ class ServerIntegrationSpec : StringSpec() {
                             val response = client.request().post(TextBodyWriter("lorem ipsum ..."), "/text")
 
                             response.responseLine.statusCode shouldBe 200
-                            response.getBody(TextBodyReader()).string shouldBe "LOREM IPSUM ..."
+                            response.getBody(TextBodyReader()).text shouldBe "LOREM IPSUM ..."
                         }
 
                 buildClient("localhost:$serverPort")
@@ -182,7 +182,7 @@ class ServerIntegrationSpec : StringSpec() {
                             }
 
                             response.responseLine.statusCode shouldBe 200
-                            response.getBody(TextBodyReader()).string shouldBe "bar"
+                            response.getBody(TextBodyReader()).text shouldBe "bar"
                         }
 
                 buildClient("localhost:$serverPort")
@@ -190,7 +190,7 @@ class ServerIntegrationSpec : StringSpec() {
                             val response = client.request().post(TextBodyWriter("lorem ipsum ..."), "/delayed")
 
                             response.responseLine.statusCode shouldBe 200
-                            response.getBody(TextBodyReader()).string shouldBe "LOREM IPSUM ..."
+                            response.getBody(TextBodyReader()).text shouldBe "LOREM IPSUM ..."
                         }
             }
         }
@@ -217,7 +217,7 @@ class ServerIntegrationSpec : StringSpec() {
                             val response = client.request().get("/foo")
 
                             response.responseLine.statusCode shouldBe 200
-                            response.getBody(TextBodyReader()).string shouldBe "bar"
+                            response.getBody(TextBodyReader()).text shouldBe "bar"
                         }
 
 

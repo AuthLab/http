@@ -24,7 +24,7 @@
 
 package org.authlab.http.server
 
-import io.kotlintest.matchers.shouldBe
+import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.http.bodies.StreamBodyWriter
 import org.authlab.http.bodies.TextBody
@@ -36,7 +36,7 @@ import java.io.FileNotFoundException
 import java.net.URI
 
 class FileServerIntegrationSpec : StringSpec() {
-    override val oneInstancePerTest = false
+    override fun isInstancePerTest() = false
 
     init {
         "A server can serve file resources" {
@@ -97,9 +97,9 @@ class FileServerIntegrationSpec : StringSpec() {
         }
 
         return ServerResponseBuilder {
-            status { 200 to "OK" }
-            header { "Content-Type" to "text/html" }
-            body { StreamBodyWriter(fileInputStream) }
+            status(200 to "OK")
+            header("Content-Type" to "text/html")
+            body(StreamBodyWriter(fileInputStream))
         }
     }
 }

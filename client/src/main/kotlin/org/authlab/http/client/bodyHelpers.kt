@@ -49,6 +49,10 @@ fun <B : Body> convertBody(body: Body, bodyReader: BodyReader<B>): B {
             .getBody()
 }
 
+fun ClientResponse<*>.asText(): String {
+    return getBody(TextBodyReader()).text
+}
+
 inline fun <reified T> ClientResponse<*>.asJson(): T {
     val contentType = headers.getHeader("Content-Type")?.getFirst()
 
@@ -61,7 +65,7 @@ inline fun <reified T> ClientResponse<*>.asJson(): T {
 }
 
 fun RequestBuilder.getText(path: String = "/"): String {
-    return get(TextBodyReader(), path).getBody().string
+    return get(TextBodyReader(), path).getBody().text
 }
 
 inline fun <reified T> RequestBuilder.getJson(path: String = "/"): T {

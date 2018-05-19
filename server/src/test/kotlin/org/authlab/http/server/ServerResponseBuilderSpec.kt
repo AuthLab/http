@@ -24,7 +24,7 @@
 
 package org.authlab.http.server
 
-import io.kotlintest.matchers.shouldBe
+import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.http.bodies.TextBodyWriter
 
@@ -32,8 +32,8 @@ class ServerResponseBuilderSpec : StringSpec() {
     init {
         "The builder can produce the expected response" {
             val serverResponse = ServerResponseBuilder {
-                status { 200 to "OK" }
-                header { "foo" to "bar" }
+                status(200 to "OK")
+                header("foo" to "bar")
                 body { TextBodyWriter("lorem ipsum ...") }
             }.build()
 

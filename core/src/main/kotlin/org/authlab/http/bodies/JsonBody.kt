@@ -43,7 +43,7 @@ class StringJsonBody(json: String) : TextBody(json), JsonBody {
             = getTypedValue(T::class.java)
 
     fun <T> getTypedValue(type: Class<T>): T
-            = _gson.fromJson(string, type)
+            = _gson.fromJson(text, type)
 }
 
 class JsonBodyReader : AbstractTextBodyReader<StringJsonBody>() {

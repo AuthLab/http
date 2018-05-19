@@ -1,12 +1,3 @@
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-    }
-}
-
 group 'http'
 version '1.0-SNAPSHOT'
 
@@ -17,8 +8,8 @@ apply plugin: 'application'
 
 mainClassName = "org.authlab.App"
 
-repositories {
-    mavenCentral()
+test {
+    useJUnitPlatform()
 }
 
 dependencies {
@@ -26,7 +17,9 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
     compile "org.codehaus.groovy:groovy-all:$groovy_version"
 
+    testCompile project(':client')
     testCompile "junit:junit:$junit_version"
+    testCompile "io.kotlintest:kotlintest-runner-junit5:$kotlin_test_version"
 }
 
 compileKotlin {

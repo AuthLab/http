@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2018 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -22,18 +22,18 @@
  * SOFTWARE.
  */
 
-package org.authlab.http.echo
+package org.authlab.http.hello
 
-import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.http.client.ClientBuilder
-import org.authlab.http.client.asJson
+import org.authlab.http.client.asText
+import org.authlab.util.randomPort
 
-class EchoServerIntegrationSpec : StringSpec() {
-    private val _port = 9090
+class HelloServerIntegrationSpec : StringSpec() {
+    private val _port = randomPort()
 
-    @Suppress("unused")
-    private val _echoServer = autoClose(EchoServerBuilder {
+    @Suppress("Unused")
+    private val _helloServer = autoClose(HelloServerBuilder {
         listen {
             host = "localhost"
             port = _port
@@ -45,32 +45,10 @@ class EchoServerIntegrationSpec : StringSpec() {
     override fun isInstancePerTest() = false
 
     init {
-        "A simple GET request is properly echoed as JSON" {
-            val response = _client.request {
-                path = "/foo/bar"
-                query { "1337" to "42" }
-                header { "Custom-Header" to "Not a footer" }
-            }.get()
+        "A GET request produces the expected hello response" {
+            val response = _client.request().get()
 
-            response.responseLine.statusCode shouldBe 200
-
-            response.headers.getHeader("Content-Type")!!.getFirst() shouldBe "application/json"
-
-            val json = response.asJson<Map<String, Any>>()
-
-
-            println(json)
-
-            json["url"] shouldBe "http://localhost:$_port/foo/bar?1337=42"
-            json["httpVersion"] shouldBe "HTTP/1.1"
-            json["bodySize"] shouldBe 0.0
-
-            val query = (json["queryString"] as List<*>).filterIsInstance<Map<String, String>>()
-            query.find { it["name"] == "1337" }!!["value"] shouldBe "42"
-
-            val headers = (json["headers"] as List<*>).filterIsInstance<Map<String, String>>()
-            headers.find { it["name"] == "Host" }!!["value"] shouldBe "localhost:$_port"
-            headers.find { it["name"] == "Custom-Header" }!!["value"] shouldBe "Not a footer"
+            println(response.asText())
         }
     }
 }

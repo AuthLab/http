@@ -31,8 +31,13 @@ import org.authlab.http.server.ServerListenerBuilder
 import org.authlab.http.server.ServerMarker
 
 @ServerMarker
-class EchoServerBuilder() {
-    private val _serverBuilder = ServerBuilder()
+class EchoServerBuilder private constructor() {
+    private val _serverBuilder = ServerBuilder {
+        default { request ->
+            status { 200 to "OK" }
+            body { JsonBodyWriter(request.toHar(), pretty = true) }
+        }
+    }
 
     constructor(init: EchoServerBuilder.() -> Unit) : this() {
         init()
@@ -49,11 +54,6 @@ class EchoServerBuilder() {
         }
 
     fun build(): Server {
-        _serverBuilder.default { request ->
-            status { 200 to "OK" }
-            body { JsonBodyWriter(request.toHar(), pretty = true) }
-        }
-
         return _serverBuilder.build()
     }
 }
