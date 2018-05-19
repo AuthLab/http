@@ -24,10 +24,21 @@
 
 package org.authlab.http
 
-class Cookie(val name: String, val value: String,
-             val path: String?, val domain: String?,
-             val expires: String?, val httpOnly: Boolean?,
-             val secure: Boolean?) {
+import java.time.Instant
+import java.util.Locale
+import java.text.SimpleDateFormat
+import java.time.ZoneOffset
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+
+
+class Cookie(val name: String,
+             val value: String,
+             val path: String? = null,
+             val domain: String? = null,
+             val expires: Instant? = null,
+             val httpOnly: Boolean? = null,
+             val secure: Boolean? = null) {
     companion object {
         fun fromString(input: String): Cookie {
             val splitInput = input.split(";")
@@ -50,11 +61,36 @@ class Cookie(val name: String, val value: String,
             return Cookie(name, value,
                     directives["PATH"],
                     directives["DOMAIN"],
-                    directives["EXPIRES"],
+                    directives["EXPIRES"]?.let(Instant::parse),
                     directives["HTTPONLY"]?.let { it.isEmpty() || it.toBoolean() },
                     directives["SECURE"]?.let { it.isEmpty() || it.toBoolean() })
         }
     }
+
+    val expiresString: String?
+            = expires?.let {
+        DateTimeFormatter.RFC_1123_DATE_TIME
+                .format(ZonedDateTime.ofInstant(it, ZoneOffset.UTC))
+    }
+
+    fun toResponseHeader(): Header
+            = Header("Set-Cookie", toString(true))
+
+    fun toString(includeDirectives: Boolean): String {
+        return StringBuilder().also { sb ->
+            sb.append(name).append('=').append(value)
+            if (includeDirectives) {
+                path?.let { sb.append("; Path=").append(it) }
+                domain?.let { sb.append("; Domain=").append(it) }
+                expiresString?.let { sb.append("; Expires=").append(it) }
+                httpOnly?.let { sb.append("; HttpOnly") }
+                secure?.let { sb.append("; Secure") }
+            }
+        }.toString()
+    }
+
+    override fun toString()
+            = toString(true)
 
     fun toHar(): Map<String, *> {
         val har: MutableMap<String, Any> = mutableMapOf("name" to name, "value" to value)

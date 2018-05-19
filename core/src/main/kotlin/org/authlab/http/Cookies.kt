@@ -48,6 +48,12 @@ class Cookies(private val cookies: Map<String, Cookie> = mapOf()) :
         }
     }
 
+    fun toResponseHeaders(): Headers {
+        return Headers(cookies.values.map {
+            it.toResponseHeader()
+        })
+    }
+
     fun toHar(): List<*> {
         return cookies.map { it.value.toHar() }
     }

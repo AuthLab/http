@@ -24,8 +24,10 @@
 
 package org.authlab.http
 
-class Headers(private val headers: Map<String, Header> = emptyMap()) :
+class Headers private constructor (private val headers: Map<String, Header>) :
         Map<String, Header> by headers {
+    constructor(headers: List<Header> = emptyList()) : this(headers.map { it.name.toUpperCase() to it }.toMap())
+
     fun withHeader(name: String, value: String): Headers {
         return withHeader(Header(name, value))
     }

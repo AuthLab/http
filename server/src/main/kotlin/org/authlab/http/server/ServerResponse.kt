@@ -24,7 +24,9 @@
 
 package org.authlab.http.server
 
+import org.authlab.http.Cookie
 import org.authlab.http.Cookies
+import org.authlab.http.Header
 import org.authlab.http.Headers
 import org.authlab.http.Response
 import org.authlab.http.ResponseLine
@@ -74,16 +76,43 @@ class ServerResponseBuilder() {
     }
 
     fun status(init: () -> Pair<Int, String>) {
-        _statusLine = init().run { ResponseLine(first, second) }
+        status(init())
     }
 
-    fun header(init: () -> Pair<String, String>) {
-        val header = init()
-        _headers = _headers.withHeader(header.first, header.second)
+    fun status(status: Pair<Int, String>) {
+        _statusLine = ResponseLine(status.first, status.second)
+    }
+
+    fun header(header: Pair<String, String>) {
+        header(Header(header.first, header.second))
+    }
+
+    fun header(header: Header) {
+        _headers = _headers.withHeader(header)
+    }
+
+    fun header(init: () -> Header) {
+        _headers = _headers.withHeader(init())
+    }
+
+    fun cookie(init: () -> Cookie) {
+        cookie(init())
+    }
+
+    fun cookie(cookie: Pair<String, String>) {
+        cookie(Cookie(cookie.first, cookie.second))
+    }
+
+    fun cookie(cookie: Cookie) {
+        _headers = _headers.withHeader(cookie.toResponseHeader())
     }
 
     fun body(init: () -> BodyWriter) {
-        _bodyWriter = init()
+        body(init())
+    }
+
+    fun body(bodyWriter: BodyWriter) {
+        _bodyWriter = bodyWriter
     }
 
     fun build(): ServerResponse {
