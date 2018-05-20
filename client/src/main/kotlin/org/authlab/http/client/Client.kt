@@ -45,7 +45,11 @@ import javax.net.SocketFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 
-class Client(val location: Location, private val socketProvider: () -> Socket, private val sslContext: SSLContext, val proxy: Endpoint? = null) : Closeable {
+class Client(val location: Location,
+             val keepAlive: Boolean,
+             private val socketProvider: () -> Socket,
+             private val sslContext: SSLContext,
+             val proxy: Endpoint? = null) : Closeable {
     companion object {
         private val _logger = loggerFor<Client>()
     }
@@ -103,6 +107,10 @@ class Client(val location: Location, private val socketProvider: () -> Socket, p
     private fun execute(request: Request, bodyWriter: BodyWriter = EmptyBodyWriter()): Response {
         _logger.debug("Sending request: {}", request.requestLine)
         _logger.trace("Request: {}", request)
+
+        if (closed) {
+            _logger.info("Connection closed")
+        }
 
         request.write(socket.outputStream, bodyWriter)
 
@@ -181,6 +189,10 @@ class Client(val location: Location, private val socketProvider: () -> Socket, p
 
             headers = headers.withHeader("Host", host.toString())
 
+            if (client.keepAlive) {
+                headers = headers.withHeader("Connection", "keep-alive")
+            }
+
             if (bodyWriter !is EmptyBodyWriter) {
                 bodyWriter.contentLength?.also {
                     headers = headers.withHeader("Content-Length", it.toString())
@@ -219,6 +231,7 @@ annotation class ClientMarker
 
 @ClientMarker
 class ClientBuilder(private val location: String) {
+    var keepAlive: Boolean = false
     var proxy: String? = null
     var socketFactory: SocketFactory? = null
     var sslContext: SSLContext = SSLContext.getDefault()
@@ -242,6 +255,6 @@ class ClientBuilder(private val location: String) {
             (proxy ?: location.endpoint).run { socketFactory.createSocket(hostname, port) }
         }
 
-        return Client(location, socketProvider, sslContext, proxy)
+        return Client(location, keepAlive, socketProvider, sslContext, proxy)
     }
 }

@@ -61,7 +61,7 @@ class ClientIntegrationSpec : StringSpec() {
     override fun isInstancePerTest() = false
 
     init {
-        "it should be possible to make a simple GET request" {
+        "It is possible to make a simple GET request" {
             val json = buildClient("http://localhost:$_serverPort")
                     .use { client ->
                         client.request().getJson<Map<String, Any>>()
@@ -77,7 +77,7 @@ class ClientIntegrationSpec : StringSpec() {
             headers.find { it["name"] == "Host" }!!["value"] shouldBe "localhost:$_serverPort"
         }
 
-        "it should be possible to make a simple GET request with a delayed body processor" {
+        "It is possible to make a simple GET request with a delayed body processor" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
                         val response = client.request().get()
@@ -97,7 +97,7 @@ class ClientIntegrationSpec : StringSpec() {
                     }
         }
 
-        "it should be possible to make a simple GET request with a path" {
+        "It is possible to make a simple GET request with a path" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
                         val response = client.request().get(path = "/some/place/nice")
@@ -113,7 +113,7 @@ class ClientIntegrationSpec : StringSpec() {
                     }
         }
 
-        "it should be possible to make a simple GET request with query parameters" {
+        "It is possible to make a simple GET request with query parameters" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
                         val response = client.request {
@@ -139,7 +139,7 @@ class ClientIntegrationSpec : StringSpec() {
                     }
         }
 
-        "it should be possible to make a simple GET request with headers" {
+        "It is possible to make a simple GET request with headers" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
                         val response = client.request {
@@ -166,7 +166,7 @@ class ClientIntegrationSpec : StringSpec() {
                     }
         }
 
-        "it should be possible to make a simple POST request" {
+        "It is possible to make a simple POST request" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
                         val response = client.request().post(TextBodyWriter("hello"))
@@ -192,7 +192,7 @@ class ClientIntegrationSpec : StringSpec() {
                     }
         }
 
-        "it should be possible to make a simple json POST request" {
+        "It is possible to make a simple json POST request" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
                         val response = client.request().postJson(mapOf("foo" to "bar"))
@@ -212,7 +212,7 @@ class ClientIntegrationSpec : StringSpec() {
                     }
         }
 
-        "it should be possible to make a simple form POST request" {
+        "It is possible to make a simple form POST request" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
                         val response = client.request().postForm {
@@ -241,7 +241,7 @@ class ClientIntegrationSpec : StringSpec() {
                     }
         }
 
-        "it should be possible to make a simple proxied GET request".config(enabled = false) {
+        "It is possible to make a simple proxied GET request".config(enabled = false) {
             buildClient("http://localhost:$_serverPort") {
                 proxy = "localhost:8080"
                 sslContext = createClientSslContext()
@@ -266,7 +266,7 @@ class ClientIntegrationSpec : StringSpec() {
             }
         }
 
-        "it should be possible to make an encrypted GET request through a proxy tunnel".config(enabled = false) {
+        "It is possible to make an encrypted GET request through a proxy tunnel".config(enabled = false) {
             buildClient("https://localhost:$_encryptedServerPort") {
                 proxy = "localhost:8080"
                 sslContext = createClientSslContext()
@@ -286,6 +286,24 @@ class ClientIntegrationSpec : StringSpec() {
                 val headers = getHeaders(json)
                 headers.find { it["name"] == "Host" }!!["value"] shouldBe "localhost:$_encryptedServerPort"
                 headers.find { it["name"] == "Proxy-Token" }!!["value"] shouldNotBe null
+            }
+        }
+
+        "It is possible to reuse the same client for multiple requests" {
+            buildClient("http://localhost:$_serverPort") {
+                keepAlive = true
+            }.use { client ->
+                val response1 = client.request().get()
+
+                response1.statusCode shouldBe 200
+
+                response1.asText()
+
+                val response2 = client.request().get()
+
+                response2.statusCode shouldBe 200
+
+                response2.asText()
             }
         }
     }

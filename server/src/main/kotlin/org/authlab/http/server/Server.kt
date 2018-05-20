@@ -81,6 +81,7 @@ class Server(private val listeners: List<ServerListener>,
             _logger.trace("Handling connection")
 
             try {
+                do {
                 val request = Request.fromInputStreamWithoutBody(socket.inputStream)
 
                 val context = MutableContext()
@@ -111,6 +112,7 @@ class Server(private val listeners: List<ServerListener>,
 
                 serverResponse.internalResponse
                         .write(socket.outputStream, serverResponse.bodyWriter)
+                } while (!socket.isClosed && serverRequest.keepAlive)
             } catch (e: Exception) {
                 _logger.warn("Error processing request", e)
 

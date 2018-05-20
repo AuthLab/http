@@ -64,6 +64,7 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
             var request: Request? = null
 
             do {
+                // TODO: Read timeout
                 line = pushbackInputStream.readLine()
 
                 if (line != null && !line.isEmpty()) {
@@ -80,6 +81,7 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
                     _logger.trace("Empty line read")
                 }
 
+                // TODO: Apply absolute connection timeout and max-request-count
             } while(line != null && !line.isEmpty())
 
             return request ?: throw IllegalStateException("Request could not be read from input stream")
