@@ -27,10 +27,14 @@ package org.authlab.http.client
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
+import org.authlab.crypto.TrustAllTrustManager
+import org.authlab.crypto.createSslContext
 import org.authlab.http.bodies.JsonBodyReader
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.echo.EchoServerBuilder
 import org.authlab.util.randomPort
+import java.security.SecureRandom
+import javax.net.ssl.SSLContext
 
 class ClientIntegrationSpec : StringSpec() {
     private val _serverPort = randomPort()
@@ -50,6 +54,7 @@ class ClientIntegrationSpec : StringSpec() {
             host = "localhost"
             port = _encryptedServerPort
             secure = true
+            sslContext = createSslContext()
         }
     }.build().also { it.start() })
 
@@ -239,6 +244,7 @@ class ClientIntegrationSpec : StringSpec() {
         "it should be possible to make a simple proxied GET request".config(enabled = false) {
             buildClient("http://localhost:$_serverPort") {
                 proxy = "localhost:8080"
+                sslContext = createClientSslContext()
             }.use { client ->
                 val response = client.request().get()
 
@@ -263,6 +269,7 @@ class ClientIntegrationSpec : StringSpec() {
         "it should be possible to make an encrypted GET request through a proxy tunnel".config(enabled = false) {
             buildClient("https://localhost:$_encryptedServerPort") {
                 proxy = "localhost:8080"
+                sslContext = createClientSslContext()
             }.use { client ->
                 val response = client.request().get()
 
@@ -272,14 +279,12 @@ class ClientIntegrationSpec : StringSpec() {
 
                 val json = getJson(response)
 
-                json["url"] shouldBe "http://localhost:$_encryptedServerPort/"
+                json["url"] shouldBe "https://localhost:$_encryptedServerPort/"
                 json["httpVersion"] shouldBe "HTTP/1.1"
                 json["bodySize"] shouldBe 0.0
 
                 val headers = getHeaders(json)
-                headers.find { it["name"] == "Host" }!!["value"] shouldBe "localhost:$_serverPort"
-                headers.find { it["name"] == "Forwarded" }!!["value"]!! shouldBe
-                        "by=/127.0.0.1:8080; for=${client.socket.localSocketAddress}"
+                headers.find { it["name"] == "Host" }!!["value"] shouldBe "localhost:$_encryptedServerPort"
                 headers.find { it["name"] == "Proxy-Token" }!!["value"] shouldNotBe null
             }
         }
@@ -302,5 +307,11 @@ class ClientIntegrationSpec : StringSpec() {
         println(jsonBody.text)
 
         return jsonBody.getTypedValue()
+    }
+
+    fun createClientSslContext(): SSLContext {
+        val sslContext = SSLContext.getInstance("TLS")
+        sslContext.init(null, arrayOf(TrustAllTrustManager()), SecureRandom())
+        return sslContext
     }
 }

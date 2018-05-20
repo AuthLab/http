@@ -25,8 +25,8 @@
 package org.authlab.http.client
 
 import org.authlab.http.Authority
+import org.authlab.http.Endpoint
 import org.authlab.http.Headers
-import org.authlab.http.Host
 import org.authlab.http.Location
 import org.authlab.http.QueryParameters
 import org.authlab.http.Request
@@ -44,9 +44,8 @@ import java.net.Socket
 import javax.net.SocketFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
-import javax.net.ssl.SSLSocketFactory
 
-class Client(val location: Location, private val socketProvider: () -> Socket, val proxy: Host? = null) : Closeable {
+class Client(val location: Location, private val socketProvider: () -> Socket, private val sslContext: SSLContext, val proxy: Endpoint? = null) : Closeable {
     companion object {
         private val _logger = loggerFor<Client>()
     }
@@ -83,7 +82,6 @@ class Client(val location: Location, private val socketProvider: () -> Socket, v
                 throw IOException("Proxy connection refused")
             }
 
-            val sslContext = SSLContext.getDefault()
             encryptedSocket = sslContext.socketFactory
                     .createSocket(socket, null, socket.port, true) as SSLSocket
             encryptedSocket.useClientMode = true
@@ -223,6 +221,7 @@ annotation class ClientMarker
 class ClientBuilder(private val location: String) {
     var proxy: String? = null
     var socketFactory: SocketFactory? = null
+    var sslContext: SSLContext = SSLContext.getDefault()
 
     constructor(host: String, init: ClientBuilder.() -> Unit = {}) : this(host) {
         init()
@@ -230,21 +229,19 @@ class ClientBuilder(private val location: String) {
 
     fun build(): Client {
         val location = Location.fromString(this.location)
-        val proxy = this.proxy?.let { Host.fromString(it) }
+        val proxy = this.proxy?.let { Location.fromString(it).endpoint }
 
         val socketFactory = when {
             this.socketFactory != null -> this.socketFactory!!
             proxy != null -> SocketFactory.getDefault()
-            location.scheme == "https" -> SSLSocketFactory.getDefault()
+            location.scheme == "https" -> sslContext.socketFactory
             else -> SocketFactory.getDefault()
         }
 
-        val endpoint = location.endpoint
-
         val socketProvider: () -> Socket = {
-            (proxy ?: location).run { socketFactory.createSocket(endpoint.hostname, endpoint.port) }
+            (proxy ?: location.endpoint).run { socketFactory.createSocket(hostname, port) }
         }
 
-        return Client(location, socketProvider, proxy)
+        return Client(location, socketProvider, sslContext, proxy)
     }
 }
