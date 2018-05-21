@@ -82,36 +82,36 @@ class Server(private val listeners: List<ServerListener>,
 
             try {
                 do {
-                val request = Request.fromInputStreamWithoutBody(socket.inputStream)
+                    val request = Request.fromInputStreamWithoutBody(socket.inputStream)
 
-                val context = MutableContext()
+                    val context = MutableContext()
 
-                // Find handler by path
-                val handler = handlers.firstOrNull {
-                    it.pathPattern.matcher(request.requestLine.location.safePath).matches()
-                }
+                    // Find handler by path
+                    val handler = handlers.firstOrNull {
+                        it.pathPattern.matcher(request.requestLine.location.safePath).matches()
+                    }
 
-                val serverRequest: ServerRequest<*>
-                var serverResponse: ServerResponse
+                    val serverRequest: ServerRequest<*>
+                    var serverResponse: ServerResponse
 
-                if (handler != null) {
-                    val requestResponsePair = handle(handler, request, context, socket.inputStream, listener.secure)
-                    serverRequest = requestResponsePair.first
-                    serverResponse = requestResponsePair.second
-                } else {
-                    serverRequest = ServerRequest(request, context, ByteBodyReader().read(socket.inputStream, request.headers).getBody(), if (listener.secure) "https" else "http")
-                    serverResponse = ServerResponse(Response(ResponseLine(404, "Not Found")), EmptyBodyWriter())
-                }
+                    if (handler != null) {
+                        val requestResponsePair = handle(handler, request, context, socket.inputStream, listener.secure)
+                        serverRequest = requestResponsePair.first
+                        serverResponse = requestResponsePair.second
+                    } else {
+                        serverRequest = ServerRequest(request, context, ByteBodyReader().read(socket.inputStream, request.headers).getBody(), if (listener.secure) "https" else "http")
+                        serverResponse = ServerResponse(Response(ResponseLine(404, "Not Found")), EmptyBodyWriter())
+                    }
 
-                transformers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
-                        .forEach { transformer ->
-                            _logger.trace("Transforming response with {}", transformer)
+                    transformers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
+                            .forEach { transformer ->
+                                _logger.trace("Transforming response with {}", transformer)
 
-                            serverResponse = transformer.onResponse(serverRequest, serverResponse, context)
-                        }
+                                serverResponse = transformer.onResponse(serverRequest, serverResponse, context)
+                            }
 
-                serverResponse.internalResponse
-                        .write(socket.outputStream, serverResponse.bodyWriter)
+                    serverResponse.internalResponse
+                            .write(socket.outputStream, serverResponse.bodyWriter)
                 } while (!socket.isClosed && serverRequest.keepAlive)
             } catch (e: Exception) {
                 _logger.warn("Error processing request", e)

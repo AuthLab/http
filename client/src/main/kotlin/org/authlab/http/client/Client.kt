@@ -41,12 +41,14 @@ import org.authlab.util.loggerFor
 import java.io.Closeable
 import java.io.IOException
 import java.net.Socket
+import java.net.SocketTimeoutException
 import javax.net.SocketFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 
 class Client(val location: Location,
              val keepAlive: Boolean,
+             val reconnect: Boolean,
              private val socketProvider: () -> Socket,
              private val sslContext: SSLContext,
              val proxy: Endpoint? = null) : Closeable {
@@ -54,17 +56,16 @@ class Client(val location: Location,
         private val _logger = loggerFor<Client>()
     }
 
-    val socket: Socket by lazy {
-        connect()
-    }
+    private var _socket: Socket? = null
+
+    val socket: Socket
+        get() = _socket ?: connect()
 
     val closed: Boolean
-        get() = socket.isClosed
-
-    private var _connected = false
+        get() = _socket?.isClosed ?: false
 
     val connected: Boolean
-        get() = _connected
+        get() = _socket?.isConnected ?: false
 
     private fun connect(): Socket {
         val socket = socketProvider()
@@ -91,9 +92,9 @@ class Client(val location: Location,
             encryptedSocket.useClientMode = true
         }
 
-        _connected = true
+        _socket = encryptedSocket ?: socket
 
-        return encryptedSocket ?: socket
+        return _socket!!
     }
 
     fun request(): RequestBuilder {
@@ -105,12 +106,18 @@ class Client(val location: Location,
     }
 
     private fun execute(request: Request, bodyWriter: BodyWriter = EmptyBodyWriter()): Response {
+        if (connected && !checkConnection()) {
+            if (reconnect) {
+                _logger.info("Socket not connected; reconnecting")
+                connect()
+            } else {
+                _logger.info("Socket not connected; not reconnecting")
+                throw IOException("Connection closed by peer")
+            }
+        }
+
         _logger.debug("Sending request: {}", request.requestLine)
         _logger.trace("Request: {}", request)
-
-        if (closed) {
-            _logger.info("Connection closed")
-        }
 
         request.write(socket.outputStream, bodyWriter)
 
@@ -129,6 +136,26 @@ class Client(val location: Location,
         _logger.trace("Response: {}", response)
 
         return response
+    }
+
+    private fun checkConnection(): Boolean {
+        val soTimeout = socket.soTimeout
+        try {
+            // Set timeout low; timeout-exception is expected if connected and no junk in stream
+            socket.soTimeout = 1
+            if (socket.getInputStream().read() < 0) {
+                _logger.info("Socket not connected")
+                connect()
+            } else {
+                _logger.warn("Unexpected inbound data")
+            }
+        } catch (ignore: SocketTimeoutException) {
+            _logger.trace("Socket connected")
+            return true
+        } finally {
+            socket.soTimeout = soTimeout
+        }
+        return false
     }
 
     override fun close() {
@@ -232,6 +259,7 @@ annotation class ClientMarker
 @ClientMarker
 class ClientBuilder(private val location: String) {
     var keepAlive: Boolean = false
+    var reconnect: Boolean = true
     var proxy: String? = null
     var socketFactory: SocketFactory? = null
     var sslContext: SSLContext = SSLContext.getDefault()
@@ -255,6 +283,6 @@ class ClientBuilder(private val location: String) {
             (proxy ?: location.endpoint).run { socketFactory.createSocket(hostname, port) }
         }
 
-        return Client(location, keepAlive, socketProvider, sslContext, proxy)
+        return Client(location, keepAlive, reconnect, socketProvider, sslContext, proxy)
     }
 }

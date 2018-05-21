@@ -26,6 +26,7 @@ package org.authlab.http.client
 
 import io.kotlintest.shouldBe
 import io.kotlintest.shouldNotBe
+import io.kotlintest.shouldThrow
 import io.kotlintest.specs.StringSpec
 import org.authlab.crypto.TrustAllTrustManager
 import org.authlab.crypto.createSslContext
@@ -33,6 +34,7 @@ import org.authlab.http.bodies.JsonBodyReader
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.echo.EchoServerBuilder
 import org.authlab.util.randomPort
+import java.io.IOException
 import java.security.SecureRandom
 import javax.net.ssl.SSLContext
 
@@ -261,7 +263,7 @@ class ClientIntegrationSpec : StringSpec() {
                 val headers = getHeaders(json)
                 headers.find { it["name"] == "Host" }!!["value"] shouldBe "localhost:$_serverPort"
                 headers.find { it["name"] == "Forwarded" }!!["value"]!! shouldBe
-                        "by=/127.0.0.1:8080; for=${client.socket.localSocketAddress}"
+                        "by=/127.0.0.1:8080; for=${client.socket?.localSocketAddress}"
                 headers.find { it["name"] == "Proxy-Token" }!!["value"] shouldNotBe null
             }
         }
@@ -304,6 +306,41 @@ class ClientIntegrationSpec : StringSpec() {
                 response2.statusCode shouldBe 200
 
                 response2.asText()
+            }
+        }
+
+        "It is possible to reuse the same client for multiple requests even when keep-alive isn't enabled" {
+            buildClient("http://localhost:$_serverPort") {
+                keepAlive = false
+            }.use { client ->
+                val response1 = client.request().get()
+
+                response1.statusCode shouldBe 200
+
+                response1.asText()
+
+                val response2 = client.request().get()
+
+                response2.statusCode shouldBe 200
+
+                response2.asText()
+            }
+        }
+
+        "It is not possible to reuse the same client for multiple requests when keep-alive and reconnect are disabled" {
+            buildClient("http://localhost:$_serverPort") {
+                keepAlive = false
+                reconnect = false
+            }.use { client ->
+                val response1 = client.request().get()
+
+                response1.statusCode shouldBe 200
+
+                response1.asText()
+
+                shouldThrow<IOException> {
+                    client.request().get()
+                }
             }
         }
     }
