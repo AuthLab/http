@@ -61,7 +61,7 @@ class Cookie(val name: String,
             return Cookie(name, value,
                     directives["PATH"],
                     directives["DOMAIN"],
-                    directives["EXPIRES"]?.let(Instant::parse),
+                    directives["EXPIRES"]?.let { Instant.from(DateTimeFormatter.RFC_1123_DATE_TIME.parse(it)) },
                     directives["HTTPONLY"]?.let { it.isEmpty() || it.toBoolean() },
                     directives["SECURE"]?.let { it.isEmpty() || it.toBoolean() })
         }
@@ -75,6 +75,9 @@ class Cookie(val name: String,
 
     fun toResponseHeader(): Header
             = Header("Set-Cookie", toString(true))
+
+    fun toRequestHeader(): Header
+            = Header("Cookie", toString(false))
 
     fun toString(includeDirectives: Boolean): String {
         return StringBuilder().also { sb ->

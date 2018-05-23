@@ -43,7 +43,8 @@ open class RequestLine(val method: String, val location: Location, val version: 
         }
     }
 
-    fun withOnlyUriPath(): RequestLine = CopiedRequestLine(method, location.withoutAuthority(), version)
+    fun withOnlyUriPath(): RequestLine
+            = CopiedRequestLine(method, location.withoutScheme().withoutAuthority(), version)
 
     open fun toLines() = listOf(toString())
 

@@ -24,9 +24,12 @@
 
 package org.authlab.http.hello
 
+import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.http.client.ClientBuilder
+import org.authlab.http.client.CookieManager
 import org.authlab.http.client.asText
+import org.authlab.http.client.buildClient
 import org.authlab.util.randomPort
 
 class HelloServerIntegrationSpec : StringSpec() {
@@ -49,6 +52,26 @@ class HelloServerIntegrationSpec : StringSpec() {
             val response = _client.request().get()
 
             println(response.asText())
+        }
+
+        "A sequence of GET requests produces the expected hello responses" {
+            buildClient("http://localhost:$_port") {
+                keepAlive = true
+                cookieManager = CookieManager()
+//                proxy = "localhost:8080"
+            }.use { client ->
+                val response1 = client.request().get()
+
+                response1.statusCode shouldBe 200
+
+                println(response1.asText())
+
+                val response2 = client.request().get()
+
+                response2.statusCode shouldBe 200
+
+                println(response2.asText())
+            }
         }
     }
 }

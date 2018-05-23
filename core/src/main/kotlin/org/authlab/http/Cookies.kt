@@ -24,8 +24,10 @@
 
 package org.authlab.http
 
-class Cookies(private val cookies: Map<String, Cookie> = mapOf()) :
+class Cookies private constructor (private val cookies: Map<String, Cookie> = mapOf()) :
         Map<String, Cookie> by cookies {
+    constructor(cookies: List<Cookie> = emptyList()) : this(cookies.map { it.name to it }.toMap())
+
     companion object {
         fun fromRequestHeaders(headers: Headers): Cookies {
             return Cookies(headers.getHeader("Cookie")?.values
@@ -48,9 +50,31 @@ class Cookies(private val cookies: Map<String, Cookie> = mapOf()) :
         }
     }
 
+    fun withCookie(cookie: Cookie): Cookies {
+        val mutableCookies = cookies.toMutableMap()
+
+        mutableCookies[cookie.name] = cookie
+
+        return Cookies(mutableCookies)
+    }
+
+    fun withCookies(cookies: Cookies): Cookies {
+        val mutableCookies = this.cookies.toMutableMap()
+
+        mutableCookies.putAll(cookies)
+
+        return Cookies(mutableCookies)
+    }
+
     fun toResponseHeaders(): Headers {
         return Headers(cookies.values.map {
             it.toResponseHeader()
+        })
+    }
+
+    fun toRequestHeaders(): Headers {
+        return Headers(cookies.values.map {
+            it.toRequestHeader()
         })
     }
 

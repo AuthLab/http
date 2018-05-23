@@ -49,6 +49,7 @@ import javax.net.ssl.SSLSocket
 class Client(val location: Location,
              val keepAlive: Boolean,
              val reconnect: Boolean,
+             val cookieManager: CookieManager?,
              private val socketProvider: () -> Socket,
              private val sslContext: SSLContext,
              val proxy: Endpoint? = null) : Closeable {
@@ -69,6 +70,8 @@ class Client(val location: Location,
 
     private fun connect(): Socket {
         val socket = socketProvider()
+        _logger.debug("Socket created: {}", socket)
+
         var encryptedSocket: Socket? = null
 
         if (proxy != null && location.scheme == "https") {
@@ -142,7 +145,7 @@ class Client(val location: Location,
         val soTimeout = socket.soTimeout
         try {
             // Set timeout low; timeout-exception is expected if connected and no junk in stream
-            socket.soTimeout = 1
+            socket.soTimeout = 100
             if (socket.getInputStream().read() < 0) {
                 _logger.info("Socket not connected")
                 connect()
@@ -220,6 +223,10 @@ class Client(val location: Location,
                 headers = headers.withHeader("Connection", "keep-alive")
             }
 
+            if (client.cookieManager != null) {
+                headers = headers.withHeaders(client.cookieManager.toRequestHeaders())
+            }
+
             if (bodyWriter !is EmptyBodyWriter) {
                 bodyWriter.contentLength?.also {
                     headers = headers.withHeader("Content-Length", it.toString())
@@ -243,6 +250,10 @@ class Client(val location: Location,
 
             val response = client.execute(request, bodyWriter)
 
+            if (client.cookieManager != null) {
+                client.cookieManager.addFromResponseHeaders(response.headers)
+            }
+
             val body = bodyReader.read(client.socket.inputStream, response.headers)
                     .getBody()
 
@@ -260,6 +271,7 @@ annotation class ClientMarker
 class ClientBuilder(private val location: String) {
     var keepAlive: Boolean = false
     var reconnect: Boolean = true
+    var cookieManager: CookieManager? = null
     var proxy: String? = null
     var socketFactory: SocketFactory? = null
     var sslContext: SSLContext = SSLContext.getDefault()
@@ -280,9 +292,11 @@ class ClientBuilder(private val location: String) {
         }
 
         val socketProvider: () -> Socket = {
-            (proxy ?: location.endpoint).run { socketFactory.createSocket(hostname, port) }
+            (proxy ?: location.endpoint).run {
+                socketFactory.createSocket(hostname, port)
+            }
         }
 
-        return Client(location, keepAlive, reconnect, socketProvider, sslContext, proxy)
+        return Client(location, keepAlive, reconnect, cookieManager, socketProvider, sslContext, proxy)
     }
 }
