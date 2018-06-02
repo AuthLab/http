@@ -2,7 +2,7 @@
 <Configuration monitorInterval="30" packages="org.authlab.logging">
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} %MDC - %msg%n"/>
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} (%C:%L) %MDC - %msg%n"/>
         </Console>
     </Appenders>
 

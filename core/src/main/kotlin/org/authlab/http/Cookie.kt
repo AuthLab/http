@@ -25,8 +25,6 @@
 package org.authlab.http
 
 import java.time.Instant
-import java.util.Locale
-import java.text.SimpleDateFormat
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -66,6 +64,9 @@ class Cookie(val name: String,
                     directives["SECURE"]?.let { it.isEmpty() || it.toBoolean() })
         }
     }
+
+    val safePath: String
+        get() = path ?: "/"
 
     val expiresString: String?
             = expires?.let {

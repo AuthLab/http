@@ -42,6 +42,7 @@ import java.io.Closeable
 import java.io.IOException
 import java.net.Socket
 import java.net.SocketTimeoutException
+import java.time.Instant
 import javax.net.SocketFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
@@ -215,7 +216,9 @@ class Client(val location: Location,
                 this.path = path
             }
 
-            val host = client.location.host ?: throw IllegalStateException("Host information missing in location '${client.location}'")
+            val location = client.location.withPath(this.path).withQuery(this.query)
+
+            val host = location.host ?: throw IllegalStateException("Host information missing in location '${client.location}'")
 
             headers = headers.withHeader("Host", host.toString())
 
@@ -224,7 +227,7 @@ class Client(val location: Location,
             }
 
             if (client.cookieManager != null) {
-                headers = headers.withHeaders(client.cookieManager.toRequestHeaders())
+                headers = headers.withHeaders(client.cookieManager.toRequestHeaders(location, Instant.now()))
             }
 
             if (bodyWriter !is EmptyBodyWriter) {
@@ -245,7 +248,7 @@ class Client(val location: Location,
                 }
             }
 
-            val request = Request(RequestLine(method, client.location.withPath(this.path).withQuery(this.query)),
+            val request = Request(RequestLine(method, location),
                     headers)
 
             val response = client.execute(request, bodyWriter)

@@ -24,18 +24,67 @@
 
 package org.authlab.http.client
 
+import org.authlab.http.Cookie
 import org.authlab.http.Cookies
 import org.authlab.http.Headers
+import org.authlab.http.Location
+import java.time.Instant
 
-class CookieManager(private var _cookies: Cookies = Cookies()) {
-    val cookies: Cookies
-        get() = _cookies
+class CookieManager(cookies: Cookies = Cookies()) {
+    private val cookiesByPath: MutableMap<String, Cookies> = mutableMapOf()
 
-    fun addFromResponseHeaders(headers: Headers) {
-        _cookies = cookies.withCookies(Cookies.fromResponseHeaders(headers))
+    init {
+        addCookies(cookies)
     }
 
-    fun toRequestHeaders(): Headers {
-        return cookies.toRequestHeaders()
+    val cookies: List<Cookie>
+        get() = cookiesByPath.flatMap { it.value.values }
+
+    fun addCookies(cookies: Cookies) {
+        cookies.forEach { _, cookie ->
+            addCookie(cookie)
+        }
+    }
+
+    fun addCookie(cookie: Cookie) {
+        cookiesByPath.compute(cookie.safePath, { _, cookies ->
+            cookies?.withCookie(cookie) ?: Cookies(cookie)
+        })
+    }
+
+    fun removeExpiredCookies(now: Instant = Instant.now()) {
+        cookiesByPath.replaceAll { _, cookies ->
+            cookies.withoutExpired(now)
+        }
+    }
+
+    fun addFromResponseHeaders(headers: Headers) {
+        addCookies(Cookies.fromResponseHeaders(headers))
+    }
+
+    fun toRequestHeaders(location: Location): Headers {
+        return toRequestHeaders(location, { true })
+    }
+
+    fun toRequestHeaders(location: Location, now: Instant): Headers {
+        return toRequestHeaders(location, { cookie -> cookie.expires?.isAfter(now) ?: true })
+    }
+
+    fun toRequestHeaders(location: Location, predicate: (Cookie) -> Boolean): Headers {
+        var requestCookies = Cookies()
+
+        cookiesByPath.filter { location.safePath.startsWith(it.key) }
+                .map { it.value }
+                .flatMap { cookies -> cookies.values }
+                .forEach { cookie ->
+                    requestCookies = requestCookies.withCookieIf(cookie) { existingCookie ->
+                        // Apply the passed predicate last, to avoid false positives where the predicate
+                        // allows a cookie that is later rejected because of a pre-existing cookie having
+                        // a more specific path.
+                        cookie.safePath.length >= existingCookie.safePath.length && predicate(cookie)
+                    }
+                }
+
+        return requestCookies.toRequestHeaders()
     }
 }

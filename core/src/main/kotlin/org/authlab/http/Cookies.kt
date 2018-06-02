@@ -24,8 +24,11 @@
 
 package org.authlab.http
 
+import java.time.Instant
+
 class Cookies private constructor (private val cookies: Map<String, Cookie> = mapOf()) :
         Map<String, Cookie> by cookies {
+    constructor(cookie: Cookie) : this(listOf(cookie))
     constructor(cookies: List<Cookie> = emptyList()) : this(cookies.map { it.name to it }.toMap())
 
     companion object {
@@ -58,12 +61,32 @@ class Cookies private constructor (private val cookies: Map<String, Cookie> = ma
         return Cookies(mutableCookies)
     }
 
+    fun withCookieIf(cookie: Cookie, predicate: (Cookie) -> Boolean): Cookies {
+        val mutableCookies = cookies.toMutableMap()
+
+        val existingCookie = cookies[cookie.name]
+
+        if (existingCookie == null || predicate(existingCookie)) {
+            mutableCookies[cookie.name] = cookie
+        } else {
+            return this
+        }
+
+        return Cookies(mutableCookies)
+    }
+
     fun withCookies(cookies: Cookies): Cookies {
         val mutableCookies = this.cookies.toMutableMap()
 
         mutableCookies.putAll(cookies)
 
         return Cookies(mutableCookies)
+    }
+
+    fun withoutExpired(now: Instant): Cookies {
+        return Cookies(this.cookies.filterValues {
+            it.expires == null || it.expires.isAfter(now)
+        })
     }
 
     fun toResponseHeaders(): Headers {
