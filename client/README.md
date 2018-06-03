@@ -29,47 +29,43 @@ Clients are auto-closeable:
 ```kotlin
 val response = buildClient("www.example.com")
 		.use { client ->
-			client.request().get()
+			client.get()
 		}
 ```
 
 Making a simple get request:
 
 ```kotlin
-val response = client.request().get()
+val response = client.get()
 ```
 
 Making it a bit more advanced:
 
 ```kotlin
-val response = client.request {
+val response = client.get("/some/place/nice") {
 	accept = "text/plain"
 	query { "foo" to "bar" }
 	header { "My-Header" to "foobar" }
-}.get("/some/place/nice")
+}
 ```
 
 Requesting JSON:
 
 ```kotlin
-val data = client.request().getJson<MyClass>()
+val data = client.getJson<MyClass>()
 ```
 
 Posting a form:
 
 ```kotlin
-val response = client.request {
-	accept = "text/plain"
-}.postForm("/some/place/nice", 
+val response = client.postForm("/some/place/nice", 
 		mapOf("name" to "Foo", "surname" to "Bar"))
 ```
 
 or:
 
 ```kotlin
-val response = client.request {
-	accept = "text/plain"
-}.postForm("/some/place/nice") {
+val response = client.postForm("/some/place/nice") {
 	param { "name" to "Foo" }
 	param { "surname" to "Bar" }
 }
@@ -80,8 +76,7 @@ Posting an object as JSON:
 ```kotlin
 val requestData = mapOf("foo" to "bar")
 
-val responseData = client.request()
-		.postJson(requestData, "/some/place/nice")
+val responseData = client.postJson(requestData, "/some/place/nice")
 		.asJson<MyClass>()
 ```
 

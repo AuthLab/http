@@ -29,6 +29,7 @@ import org.authlab.http.Headers
 import org.authlab.http.ParametersBuilder
 import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.DelayedBody
 import org.authlab.http.bodies.FormBodyWriter
 import org.authlab.http.bodies.JsonBodyReader
 import org.authlab.http.bodies.JsonBodyWriter
@@ -64,19 +65,27 @@ inline fun <reified T> ClientResponse<*>.asJson(): T {
     return getBody(JsonBodyReader()).getTypedValue()
 }
 
-fun RequestBuilder.getText(path: String = "/"): String {
-    return get(TextBodyReader(), path).getBody().text
+fun Client.getText(path: String = "/", init: RequestBuilder.() -> Unit = {}): String {
+    return get(TextBodyReader(), path, init).getBody().text
 }
 
-inline fun <reified T> RequestBuilder.getJson(path: String = "/"): T {
-    return get(JsonBodyReader(), path).getBody().getTypedValue()
+inline fun <reified T> Client.getJson(path: String = "/", noinline init: RequestBuilder.() -> Unit = {}): T {
+    return get(JsonBodyReader(), path, init).getBody().getTypedValue()
 }
 
-fun RequestBuilder.postJson(data: Any, path: String = "/"): ClientResponse<*> {
-    return post(JsonBodyWriter(data), path)
+fun Client.postJson(data: Any, path: String = "/", init: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
+    return post(JsonBodyWriter(data), path, init)
 }
 
-fun RequestBuilder.postForm(path: String = "/", init: ParametersBuilder.() -> Unit): ClientResponse<*> {
-    val formParameters = FormParametersBuilder(init).build()
-    return post(FormBodyWriter(formParameters), path)
+fun Client.postForm(path: String = "/", requestInit: RequestBuilder.() -> Unit = {},
+                    parametersInit: ParametersBuilder.() -> Unit): ClientResponse<DelayedBody> {
+    val formParameters = FormParametersBuilder(parametersInit).build()
+    return post(FormBodyWriter(formParameters), path, requestInit)
+}
+
+fun Client.postForm(path: String = "/", parameters: Map<String, String>,
+                    requestInit: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
+    val formParametersBuilder = FormParametersBuilder()
+    parameters.forEach { key, value -> formParametersBuilder.parameter { key to value } }
+    return post(FormBodyWriter(formParametersBuilder.build()), path, requestInit)
 }

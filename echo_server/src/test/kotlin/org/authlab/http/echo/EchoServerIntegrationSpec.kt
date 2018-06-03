@@ -46,11 +46,10 @@ class EchoServerIntegrationSpec : StringSpec() {
 
     init {
         "A simple GET request is properly echoed as JSON" {
-            val response = _client.request {
-                path = "/foo/bar"
+            val response = _client.get("/foo/bar") {
                 query { "1337" to "42" }
                 header { "Custom-Header" to "Not a footer" }
-            }.get()
+            }
 
             response.responseLine.statusCode shouldBe 200
 

@@ -55,18 +55,18 @@ class DelayedBodyWriter : BodyWriter {
     }
 }
 
-class DelayedBodyReader : BodyReader<Body> {
+class DelayedBodyReader : BodyReader<DelayedBody> {
     private var _inputStream: InputStream? = null
     private var _headers: Headers? = null
 
-    override fun read(inputStream: InputStream, headers: Headers): BodyReader<Body> {
+    override fun read(inputStream: InputStream, headers: Headers): BodyReader<DelayedBody> {
         _inputStream = inputStream
         _headers = headers
 
         return this
     }
 
-    override fun getBody(): Body {
+    override fun getBody(): DelayedBody {
         return DelayedBody(_inputStream ?: throw IllegalStateException("No inputstream"),
                 _headers ?: throw IllegalStateException("No headers"))
     }

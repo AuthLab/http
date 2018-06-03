@@ -53,7 +53,7 @@ class ServerIntegrationSpec : StringSpec() {
 
             val response = server.use {
                 buildClient("localhost:$serverPort").use { client ->
-                    client.request().get()
+                    client.get()
                 }
             }
 
@@ -78,13 +78,13 @@ class ServerIntegrationSpec : StringSpec() {
             server.use {
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            val response = client.request().get()
+                            val response = client.get()
                             response.responseLine.statusCode shouldBe 404
                         }
 
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            val response = client.request().get("/foo")
+                            val response = client.get("/foo")
                             response.responseLine.statusCode shouldBe 200
                             response.getBody(TextBodyReader()).text shouldBe "bar"
                         }
@@ -114,20 +114,20 @@ class ServerIntegrationSpec : StringSpec() {
             server.use {
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            val badResponse = client.request().get()
+                            val badResponse = client.get()
                             badResponse.responseLine.statusCode shouldBe 404
                         }
 
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            val okResponse = client.request().get("/do/re")
+                            val okResponse = client.get("/do/re")
                             okResponse.responseLine.statusCode shouldBe 200
                             okResponse.getBody(TextBodyReader()).text shouldBe "/do/*"
                         }
 
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            val okResponse = client.request().get("/do/re/mi")
+                            val okResponse = client.get("/do/re/mi")
                             okResponse.responseLine.statusCode shouldBe 200
                             okResponse.getBody(TextBodyReader()).text shouldBe "/do/*/mi"
                         }
@@ -168,7 +168,7 @@ class ServerIntegrationSpec : StringSpec() {
             server.use {
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            val response = client.request().post(TextBodyWriter("lorem ipsum ..."), "/text")
+                            val response = client.post(TextBodyWriter("lorem ipsum ..."), "/text")
 
                             response.responseLine.statusCode shouldBe 200
                             response.getBody(TextBodyReader()).text shouldBe "LOREM IPSUM ..."
@@ -176,7 +176,7 @@ class ServerIntegrationSpec : StringSpec() {
 
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            val response = client.request().postForm("/form") {
+                            val response = client.postForm("/form") {
                                 parameter { "foo" to "bar" }
                                 parameter { "13" to "37" }
                             }
@@ -187,7 +187,7 @@ class ServerIntegrationSpec : StringSpec() {
 
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            val response = client.request().post(TextBodyWriter("lorem ipsum ..."), "/delayed")
+                            val response = client.post(TextBodyWriter("lorem ipsum ..."), "/delayed")
 
                             response.responseLine.statusCode shouldBe 200
                             response.getBody(TextBodyReader()).text shouldBe "LOREM IPSUM ..."
@@ -214,7 +214,7 @@ class ServerIntegrationSpec : StringSpec() {
             server.use {
                 buildClient("https://localhost:$serverPort")
                         .use { client ->
-                            val response = client.request().get("/foo")
+                            val response = client.get("/foo")
 
                             response.responseLine.statusCode shouldBe 200
                             response.getBody(TextBodyReader()).text shouldBe "bar"

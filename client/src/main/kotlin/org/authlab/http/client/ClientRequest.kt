@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2018 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -25,37 +25,20 @@
 package org.authlab.http.client
 
 import org.authlab.http.Headers
+import org.authlab.http.Request
+import org.authlab.http.RequestLine
 import org.authlab.http.bodies.BodyWriter
+import java.io.OutputStream
 
-@ClientMarker
-interface RequestBuilder {
-    var method: String
-    var path: String
-    var bodyWriter: BodyWriter
-    var contentType: String?
-    var accept: String?
+class ClientRequest(val internalRequest: Request,
+                    val bodyWriter: BodyWriter) {
+    val requestLine: RequestLine
+            = internalRequest.requestLine
 
-    fun query(name: String, value: String? = null): RequestBuilder
+    val headers: Headers
+            = internalRequest.headers
 
-    fun query(param: Pair<String, String>): RequestBuilder
-
-    fun query(init: () -> Pair<String, String>) {
-        query(init())
+    fun write(outputStream: OutputStream) {
+        internalRequest.write(outputStream, bodyWriter)
     }
-
-    fun header(name: String, value: String): RequestBuilder
-
-    fun header(header: Pair<String, String>): RequestBuilder
-
-    fun header(init: () -> Pair<String, String>) {
-        header(init())
-    }
-
-    fun headers(headers: Headers): RequestBuilder
-
-    fun headers(init: () -> Headers) {
-        headers(init())
-    }
-
-    fun build(): ClientRequest
 }

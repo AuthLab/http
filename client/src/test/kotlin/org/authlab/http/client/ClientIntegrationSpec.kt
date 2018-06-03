@@ -66,7 +66,7 @@ class ClientIntegrationSpec : StringSpec() {
         "It is possible to make a simple GET request" {
             val json = buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        client.request().getJson<Map<String, Any>>()
+                        client.getJson<Map<String, Any>>()
                     }
 
             json["method"] shouldBe "GET"
@@ -82,7 +82,7 @@ class ClientIntegrationSpec : StringSpec() {
         "It is possible to make a simple GET request with a delayed body processor" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        val response = client.request().get()
+                        val response = client.get()
 
                         response.statusCode shouldBe 200
 
@@ -102,7 +102,7 @@ class ClientIntegrationSpec : StringSpec() {
         "It is possible to make a simple GET request with a path" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        val response = client.request().get(path = "/some/place/nice")
+                        val response = client.get("/some/place/nice")
 
                         response.statusCode shouldBe 200
 
@@ -118,11 +118,11 @@ class ClientIntegrationSpec : StringSpec() {
         "It is possible to make a simple GET request with query parameters" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        val response = client.request {
+                        val response = client.get("/") {
                             query { "foo" to "bar" }
                             query("13", "37")
                             query("42")
-                        }.get()
+                        }
 
                         response.statusCode shouldBe 200
 
@@ -144,11 +144,11 @@ class ClientIntegrationSpec : StringSpec() {
         "It is possible to make a simple GET request with headers" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        val response = client.request {
+                        val response = client.get {
                             header { "foo" to "bar" }
                             header("13", "37")
                             header("foo", "also_bar")
-                        }.get()
+                        }
 
                         response.statusCode shouldBe 200
 
@@ -171,7 +171,7 @@ class ClientIntegrationSpec : StringSpec() {
         "It is possible to make a simple POST request" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        val response = client.request().post(TextBodyWriter("hello"))
+                        val response = client.post(TextBodyWriter("hello"))
 
                         response.statusCode shouldBe 200
 
@@ -197,7 +197,7 @@ class ClientIntegrationSpec : StringSpec() {
         "It is possible to make a simple json POST request" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        val response = client.request().postJson(mapOf("foo" to "bar"))
+                        val response = client.postJson(mapOf("foo" to "bar"))
 
                         response.statusCode shouldBe 200
 
@@ -217,10 +217,37 @@ class ClientIntegrationSpec : StringSpec() {
         "It is possible to make a simple form POST request" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        val response = client.request().postForm {
+                        val response = client.postForm {
                             parameter { "name" to "Foo" }
                             parameter { "surname" to "Bar" }
                         }
+
+                        response.statusCode shouldBe 200
+
+                        val json = getJson(response)
+
+                        json["method"] shouldBe "POST"
+                        json["url"] shouldBe "http://localhost:$_serverPort/"
+                        json["httpVersion"] shouldBe "HTTP/1.1"
+                        json["bodySize"] shouldBe 20.0
+
+                        val postData = getPostData(json)
+
+                        postData["mimeType"] shouldBe "application/x-www-form-urlencoded"
+
+                        val postParams = (postData["params"] as List<*>).filterIsInstance<Map<String, String>>()
+
+                        postParams.size shouldBe 2
+                        postParams.find { it["name"] == "name" }!!["value"] shouldBe "Foo"
+                        postParams.find { it["name"] == "surname" }!!["value"] shouldBe "Bar"
+                    }
+        }
+
+        "It is possible to make a simple form POST request using a map" {
+            buildClient("http://localhost:$_serverPort")
+                    .use { client ->
+                        val response = client.postForm("/",
+                                mapOf("name" to "Foo", "surname" to "Bar"))
 
                         response.statusCode shouldBe 200
 
@@ -248,7 +275,7 @@ class ClientIntegrationSpec : StringSpec() {
                 proxy = "localhost:8080"
                 sslContext = createClientSslContext()
             }.use { client ->
-                val response = client.request().get()
+                val response = client.get()
 
                 response.statusCode shouldBe 200
 
@@ -263,7 +290,7 @@ class ClientIntegrationSpec : StringSpec() {
                 val headers = getHeaders(json)
                 headers.find { it["name"] == "Host" }!!["value"] shouldBe "localhost:$_serverPort"
                 headers.find { it["name"] == "Forwarded" }!!["value"]!! shouldBe
-                        "by=/127.0.0.1:8080; for=${client.socket?.localSocketAddress}"
+                        "by=/127.0.0.1:8080; for=${client.socket.localSocketAddress}"
                 headers.find { it["name"] == "Proxy-Token" }!!["value"] shouldNotBe null
             }
         }
@@ -273,7 +300,7 @@ class ClientIntegrationSpec : StringSpec() {
                 proxy = "localhost:8080"
                 sslContext = createClientSslContext()
             }.use { client ->
-                val response = client.request().get()
+                val response = client.get()
 
                 response.statusCode shouldBe 200
 
@@ -295,13 +322,13 @@ class ClientIntegrationSpec : StringSpec() {
             buildClient("http://localhost:$_serverPort") {
                 keepAlive = true
             }.use { client ->
-                val response1 = client.request().get()
+                val response1 = client.get()
 
                 response1.statusCode shouldBe 200
 
                 response1.asText()
 
-                val response2 = client.request().get()
+                val response2 = client.get()
 
                 response2.statusCode shouldBe 200
 
@@ -313,13 +340,13 @@ class ClientIntegrationSpec : StringSpec() {
             buildClient("http://localhost:$_serverPort") {
                 keepAlive = false
             }.use { client ->
-                val response1 = client.request().get()
+                val response1 = client.get()
 
                 response1.statusCode shouldBe 200
 
                 response1.asText()
 
-                val response2 = client.request().get()
+                val response2 = client.get()
 
                 response2.statusCode shouldBe 200
 
@@ -332,14 +359,14 @@ class ClientIntegrationSpec : StringSpec() {
                 keepAlive = false
                 reconnect = false
             }.use { client ->
-                val response1 = client.request().get()
+                val response1 = client.get()
 
                 response1.statusCode shouldBe 200
 
                 response1.asText()
 
                 shouldThrow<IOException> {
-                    client.request().get()
+                    client.get()
                 }
             }
         }

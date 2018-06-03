@@ -54,7 +54,7 @@ class FileServerIntegrationSpec : StringSpec() {
             val response = server.use {
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            client.request().getText()
+                            client.getText()
                         }
             }
 

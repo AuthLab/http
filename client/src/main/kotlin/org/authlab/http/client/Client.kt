@@ -36,6 +36,8 @@ import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.ByteBodyReader
+import org.authlab.http.bodies.DelayedBody
+import org.authlab.http.bodies.DelayedBodyReader
 import org.authlab.http.bodies.EmptyBodyWriter
 import org.authlab.util.loggerFor
 import java.io.Closeable
@@ -76,7 +78,7 @@ class Client(val location: Location,
         var encryptedSocket: Socket? = null
 
         if (proxy != null && location.scheme == "https") {
-            _logger.debug("Sending CONNECT request to proxy")
+            _logger.debug("Sending CONNECT requestBuilder to proxy")
 
             val host = location.host ?: throw IllegalStateException("Host information missing in location '$location'")
 
@@ -101,15 +103,113 @@ class Client(val location: Location,
         return _socket!!
     }
 
-    fun request(): RequestBuilder {
+    fun requestBuilder(): RequestBuilder {
         return RequestBuilderImpl(this)
     }
 
-    fun request(init: RequestBuilder.() -> Unit): RequestBuilder {
+    fun requestBuilder(init: RequestBuilder.() -> Unit): RequestBuilder {
         return RequestBuilderImpl(this, init)
     }
 
-    private fun execute(request: Request, bodyWriter: BodyWriter = EmptyBodyWriter()): Response {
+    fun get(path: String? = null, init: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
+        return get(DelayedBodyReader(), path, init)
+    }
+
+    fun <B: Body> get(bodyReader: BodyReader<B>, path: String? = null, init: RequestBuilder.() -> Unit = {}): ClientResponse<B> {
+        return request(bodyReader) {
+            init()
+            method = "GET"
+            if (path != null) {
+                this.path = path
+            }
+        }
+    }
+
+    fun post(bodyWriter: BodyWriter, path: String? = null, init: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
+        return post(bodyWriter, DelayedBodyReader(), path, init)
+    }
+
+    fun <B: Body> post(bodyWriter: BodyWriter, bodyReader: BodyReader<B>, path: String? = null, init: RequestBuilder.() -> Unit = {}): ClientResponse<B> {
+        return request(bodyReader) {
+            init()
+            this.bodyWriter = bodyWriter
+            method = "POST"
+            if (path != null) {
+                this.path = path
+            }
+        }
+    }
+
+    fun put(bodyWriter: BodyWriter, path: String? = null, init: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
+        return put(bodyWriter, DelayedBodyReader(), path, init)
+    }
+
+    fun <B: Body> put(bodyWriter: BodyWriter, bodyReader: BodyReader<B>, path: String? = null, init: RequestBuilder.() -> Unit = {}): ClientResponse<B> {
+        return request(bodyReader) {
+            init()
+            this.bodyWriter = bodyWriter
+            method = "PUT"
+            if (path != null) {
+                this.path = path
+            }
+        }
+    }
+
+    fun patch(bodyWriter: BodyWriter, path: String? = null, init: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
+        return patch(bodyWriter, DelayedBodyReader(), path, init)
+    }
+
+    fun <B: Body> patch(bodyWriter: BodyWriter, bodyReader: BodyReader<B>, path: String? = null, init: RequestBuilder.() -> Unit = {}): ClientResponse<B> {
+        return request(bodyReader) {
+            init()
+            this.bodyWriter = bodyWriter
+            method = "PATCH"
+            if (path != null) {
+                this.path = path
+            }
+        }
+    }
+
+    fun delete(path: String? = null, init: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
+        return get(DelayedBodyReader(), path, init)
+    }
+
+    fun <B: Body> delete(bodyReader: BodyReader<B>, path: String? = null, init: RequestBuilder.() -> Unit = {}): ClientResponse<B> {
+        return request(bodyReader) {
+            init()
+            method = "DELETE"
+            if (path != null) {
+                this.path = path
+            }
+        }
+    }
+
+    fun <B: Body> request(bodyReader: BodyReader<B>, init: RequestBuilder.() -> Unit): ClientResponse<B> {
+        val requestBuilder = requestBuilder(init)
+
+        if (keepAlive) {
+            requestBuilder.header("Connection", "keep-alive")
+        }
+
+        if (cookieManager != null) {
+            requestBuilder.headers(cookieManager.toRequestHeaders(location, Instant.now()))
+        }
+
+        return request(requestBuilder.build(), bodyReader)
+    }
+
+    fun <B: Body> request(clientRequest: ClientRequest, bodyReader: BodyReader<B>): ClientResponse<B> {
+        val response = execute(clientRequest.internalRequest, clientRequest.bodyWriter)
+
+        cookieManager?.addFromResponseHeaders(response.headers)
+
+        val body = bodyReader.read(socket.inputStream, response.headers)
+                .getBody()
+
+        return ClientResponse(response, body)
+    }
+
+    private fun execute(request: Request, bodyWriter: BodyWriter): Response {
         if (connected && !checkConnection()) {
             if (reconnect) {
                 _logger.info("Socket not connected; reconnecting")
@@ -167,10 +267,11 @@ class Client(val location: Location,
     }
 
     private class RequestBuilderImpl(private val client: Client,
+                                     override var method: String = "GET",
                                      override var path: String = "/",
+                                     override var bodyWriter: BodyWriter = EmptyBodyWriter(),
                                      private var query: QueryParameters = QueryParameters(),
                                      private var headers: Headers = Headers()) : RequestBuilder {
-
         constructor(client: Client, init: RequestBuilder.() -> Unit) : this(client) {
             init()
         }
@@ -211,24 +312,17 @@ class Client(val location: Location,
             return this
         }
 
-        override fun <B : Body> execute(method: String, bodyWriter: BodyWriter, bodyReader: BodyReader<B>, path: String?): ClientResponse<B> {
-            if (path != null) {
-                this.path = path
-            }
+        override fun headers(headers: Headers): RequestBuilder {
+            this.headers = headers.withHeaders(headers)
+            return this
+        }
 
+        override fun build(): ClientRequest {
             val location = client.location.withPath(this.path).withQuery(this.query)
 
             val host = location.host ?: throw IllegalStateException("Host information missing in location '${client.location}'")
 
             headers = headers.withHeader("Host", host.toString())
-
-            if (client.keepAlive) {
-                headers = headers.withHeader("Connection", "keep-alive")
-            }
-
-            if (client.cookieManager != null) {
-                headers = headers.withHeaders(client.cookieManager.toRequestHeaders(location, Instant.now()))
-            }
 
             if (bodyWriter !is EmptyBodyWriter) {
                 bodyWriter.contentLength?.also {
@@ -251,16 +345,7 @@ class Client(val location: Location,
             val request = Request(RequestLine(method, location),
                     headers)
 
-            val response = client.execute(request, bodyWriter)
-
-            if (client.cookieManager != null) {
-                client.cookieManager.addFromResponseHeaders(response.headers)
-            }
-
-            val body = bodyReader.read(client.socket.inputStream, response.headers)
-                    .getBody()
-
-            return ClientResponse(response, body)
+            return ClientRequest(request, bodyWriter)
         }
     }
 }

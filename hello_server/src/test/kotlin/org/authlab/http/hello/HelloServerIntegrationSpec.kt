@@ -49,7 +49,7 @@ class HelloServerIntegrationSpec : StringSpec() {
 
     init {
         "A GET request produces the expected hello response" {
-            val response = _client.request().get()
+            val response = _client.get()
 
             println(response.asText())
         }
@@ -60,13 +60,13 @@ class HelloServerIntegrationSpec : StringSpec() {
                 cookieManager = CookieManager()
 //                proxy = "localhost:8080"
             }.use { client ->
-                val response1 = client.request().get()
+                val response1 = client.get()
 
                 response1.statusCode shouldBe 200
 
                 println(response1.asText())
 
-                val response2 = client.request().get()
+                val response2 = client.get()
 
                 response2.statusCode shouldBe 200
 
