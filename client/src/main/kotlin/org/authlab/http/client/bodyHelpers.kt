@@ -65,25 +65,25 @@ inline fun <reified T> ClientResponse<*>.asJson(): T {
     return getBody(JsonBodyReader()).getTypedValue()
 }
 
-fun Client.getText(path: String = "/", init: RequestBuilder.() -> Unit = {}): String {
+fun Client.getText(path: String? = null, init: RequestBuilder.() -> Unit = {}): String {
     return get(TextBodyReader(), path, init).getBody().text
 }
 
-inline fun <reified T> Client.getJson(path: String = "/", noinline init: RequestBuilder.() -> Unit = {}): T {
+inline fun <reified T> Client.getJson(path: String? = null, noinline init: RequestBuilder.() -> Unit = {}): T {
     return get(JsonBodyReader(), path, init).getBody().getTypedValue()
 }
 
-fun Client.postJson(data: Any, path: String = "/", init: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
+fun Client.postJson(data: Any, path: String? = null, init: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
     return post(JsonBodyWriter(data), path, init)
 }
 
-fun Client.postForm(path: String = "/", requestInit: RequestBuilder.() -> Unit = {},
-                    parametersInit: ParametersBuilder.() -> Unit): ClientResponse<DelayedBody> {
+fun Client.postForm(parametersInit: ParametersBuilder.() -> Unit, path: String? = null,
+                    requestInit: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
     val formParameters = FormParametersBuilder(parametersInit).build()
     return post(FormBodyWriter(formParameters), path, requestInit)
 }
 
-fun Client.postForm(path: String = "/", parameters: Map<String, String>,
+fun Client.postForm(parameters: Map<String, String>, path: String? = null,
                     requestInit: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
     val formParametersBuilder = FormParametersBuilder()
     parameters.forEach { key, value -> formParametersBuilder.parameter { key to value } }

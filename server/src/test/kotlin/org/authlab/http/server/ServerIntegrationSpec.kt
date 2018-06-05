@@ -176,10 +176,10 @@ class ServerIntegrationSpec : StringSpec() {
 
                 buildClient("localhost:$serverPort")
                         .use { client ->
-                            val response = client.postForm("/form") {
+                            val response = client.postForm({
                                 parameter { "foo" to "bar" }
                                 parameter { "13" to "37" }
-                            }
+                            }, "/form")
 
                             response.responseLine.statusCode shouldBe 200
                             response.getBody(TextBodyReader()).text shouldBe "bar"

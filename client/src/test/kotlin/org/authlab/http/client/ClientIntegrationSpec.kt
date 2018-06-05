@@ -217,10 +217,10 @@ class ClientIntegrationSpec : StringSpec() {
         "It is possible to make a simple form POST request" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        val response = client.postForm {
+                        val response = client.postForm({
                             parameter { "name" to "Foo" }
                             parameter { "surname" to "Bar" }
-                        }
+                        })
 
                         response.statusCode shouldBe 200
 
@@ -246,11 +246,9 @@ class ClientIntegrationSpec : StringSpec() {
         "It is possible to make a simple form POST request using a map" {
             buildClient("http://localhost:$_serverPort")
                     .use { client ->
-                        val response = client.postForm("/",
-                                mapOf("name" to "Foo", "surname" to "Bar"))
+                        val response = client.postForm(mapOf("name" to "Foo", "surname" to "Bar"))
 
                         response.statusCode shouldBe 200
-
                         val json = getJson(response)
 
                         json["method"] shouldBe "POST"

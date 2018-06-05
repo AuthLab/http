@@ -58,17 +58,17 @@ val data = client.getJson<MyClass>()
 Posting a form:
 
 ```kotlin
-val response = client.postForm("/some/place/nice", 
-		mapOf("name" to "Foo", "surname" to "Bar"))
+val response = client.postForm(mapOf("name" to "Foo", "surname" to "Bar"), 
+		"/some/place/nice")
 ```
 
 or:
 
 ```kotlin
-val response = client.postForm("/some/place/nice") {
-	param { "name" to "Foo" }
-	param { "surname" to "Bar" }
-}
+val response = client.postForm({
+		parameter { "name" to "Foo" }
+		parameter { "surname" to "Bar" }
+	}, "/some/place/nice")
 ```
 
 Posting an object as JSON:
