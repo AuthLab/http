@@ -30,8 +30,8 @@ import org.authlab.http.RequestLine
 import org.authlab.http.bodies.BodyWriter
 import java.io.OutputStream
 
-class ClientRequest(val internalRequest: Request,
-                    val bodyWriter: BodyWriter) {
+class ClientRequest(internal val internalRequest: Request,
+                    internal val bodyWriter: BodyWriter) {
     val requestLine: RequestLine
             = internalRequest.requestLine
 

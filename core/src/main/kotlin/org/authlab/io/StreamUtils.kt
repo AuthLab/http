@@ -24,8 +24,10 @@
 
 package org.authlab.io
 
+import java.io.IOException
 import java.io.PushbackInputStream
 
+@Throws(IOException::class)
 fun PushbackInputStream.readLine(): String? {
     val stringBuilder = StringBuilder()
 

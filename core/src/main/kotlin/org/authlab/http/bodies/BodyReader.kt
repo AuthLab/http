@@ -25,6 +25,7 @@
 package org.authlab.http.bodies
 
 import org.authlab.http.Headers
+import org.authlab.http.Response
 import org.authlab.io.readLine
 import org.authlab.util.loggerFor
 import java.io.InputStream
@@ -43,13 +44,15 @@ abstract class AbstractBodyReader<out B : Body> : BodyReader<B> {
     }
 
     override fun read(inputStream: InputStream, headers: Headers): BodyReader<B> {
+        _logger.debug("Reading body from input stream")
+
         val pushbackInputStream = inputStream as? PushbackInputStream ?: PushbackInputStream(inputStream)
 
         val chunked = headers["Transfer-Encoding"]?.getFirst().equals("chunked", ignoreCase = true)
 
         val length = headers["Content-Length"]?.getFirstAsInt() ?: let {
             if (!chunked) {
-                _logger.warn("No Content-Length but also no Transfer-Encoding; assuming zero length")
+                _logger.debug("No Content-Length but also no chunked Transfer-Encoding; assuming zero length")
             }
             0
         }
@@ -91,6 +94,8 @@ abstract class AbstractBodyReader<out B : Body> : BodyReader<B> {
                 pushbackInputStream.readLine()
             }
         } while (chunked && chunkSize > 0)
+
+        _logger.debug("Body read from input stream")
 
         return this
     }

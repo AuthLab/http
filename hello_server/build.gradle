@@ -15,7 +15,8 @@ test {
 dependencies {
     compile project(':server')
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    compile "org.codehaus.groovy:groovy-all:$groovy_version"
+//    compile "org.codehaus.groovy:groovy-all:$groovy_version"
+    compile "org.apache.logging.log4j:log4j-core:2.10.0"
 
     testCompile project(':client')
     testCompile "junit:junit:$junit_version"

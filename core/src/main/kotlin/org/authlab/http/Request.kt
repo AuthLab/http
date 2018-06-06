@@ -35,6 +35,7 @@ import org.authlab.util.loggerFor
 import org.authlab.io.readLine
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PushbackInputStream
@@ -45,6 +46,7 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
     companion object {
         private val _logger = loggerFor<Request>()
 
+        @Throws(IOException::class)
         fun fromInputStream(inputStream: InputStream, bodyReader: BodyReader<*>, beforeBody: (Request) -> Unit = {}): Request {
             val request = fromInputStreamWithoutBody(inputStream)
 
@@ -55,6 +57,7 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
             return request.withBody(body)
         }
 
+        @Throws(IOException::class)
         fun fromInputStreamWithoutBody(inputStream: InputStream): Request {
             _logger.debug("Reading request from input stream")
 
@@ -83,6 +86,10 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
 
                 // TODO: Apply absolute connection timeout and max-request-count
             } while(line != null && !line.isEmpty())
+
+            if (request != null) {
+                _logger.debug("Request read from input stream: {}", request.requestLine)
+            }
 
             return request ?: throw IllegalStateException("Request could not be read from input stream")
         }
@@ -127,6 +134,7 @@ class Request(val requestLine: RequestLine, val headers: Headers = Headers(), va
         write(outputStream, body.writer)
     }
 
+    @Throws(IOException::class)
     fun write(outputStream: OutputStream, bodyWriter: BodyWriter) {
         _logger.debug("Writing  request to output stream")
         _logger.trace("Request: $this")

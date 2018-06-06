@@ -32,6 +32,7 @@ import org.authlab.http.bodies.emptyBody
 import org.authlab.io.readLine
 import org.authlab.util.loggerFor
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.io.PushbackInputStream
@@ -42,6 +43,7 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
     companion object {
         private val _logger = loggerFor<Response>()
 
+        @Throws(IOException::class)
         fun fromInputStream(inputStream: InputStream, bodyReader: BodyReader<*>): Response {
             val response = fromInputStreamWithoutBody(inputStream)
 
@@ -50,6 +52,7 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
             return response.withBody(body)
         }
 
+        @Throws(IOException::class)
         fun fromInputStreamWithoutBody(inputStream: InputStream): Response {
             _logger.debug("Reading response from input stream")
 
@@ -98,12 +101,14 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
         return Response(responseLine, headers, body)
     }
 
+    @Throws(IOException::class)
     fun write(outputStream: OutputStream) {
         write(outputStream, body.writer)
     }
 
+    @Throws(IOException::class)
     fun write(outputStream: OutputStream, bodyWriter: BodyWriter) {
-        _logger.debug("Writing response to output stream")
+        _logger.debug("Writing response to output stream: {}", responseLine)
         _logger.trace("Response: $this")
 
         val writer = outputStream.writer()
@@ -117,7 +122,7 @@ open class Response(val responseLine: ResponseLine, val headers: Headers = Heade
 
         bodyWriter.write(outputStream)
 
-        _logger.info("Response written to output stream: {}", responseLine)
+        _logger.debug("Response written to output stream")
     }
 
     fun toLines(): List<String> {

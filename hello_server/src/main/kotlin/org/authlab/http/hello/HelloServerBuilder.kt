@@ -30,8 +30,12 @@ import org.authlab.http.server.Server
 import org.authlab.http.server.ServerBuilder
 import org.authlab.http.server.ServerListenerBuilder
 import org.authlab.http.server.ServerResponseBuilder
+import org.authlab.util.loggerFor
+import org.slf4j.MDC
 import java.time.Instant
 import java.util.UUID
+
+private val logger = loggerFor("Hello-Server")
 
 class HelloServerBuilder private constructor() {
     private val serverBuilder = ServerBuilder {
@@ -52,6 +56,14 @@ class HelloServerBuilder private constructor() {
                 }.build()
             }
         }
+        filter {
+            onRequest { _, context ->
+                MDC.clear()
+                context.data["transaction_id"]?.also { MDC.put("transaction", it.toString()) }
+                context.data["session_id"]?.also { MDC.put("session", it.toString()) }
+                null
+            }
+        }
         transform {
             onResponse { request, response, context ->
                 ServerResponseBuilder(response) {
@@ -67,7 +79,15 @@ class HelloServerBuilder private constructor() {
                 }.build()
             }
         }
+        transform {
+            onResponse { _, response, _ ->
+                MDC.clear()
+                response
+            }
+        }
         default { request ->
+            logger.info("Saying hello")
+
             val sb = StringBuilder()
             sb.append("hello")
             request.context.data.forEach { key, value ->

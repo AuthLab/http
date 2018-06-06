@@ -4,6 +4,10 @@
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} %MDC - %msg%n"/>
         </Console>
+
+        <Http name="HTTP" url="http://localhost:8180/api/sources/server/events">
+            <JsonMapLayout includeMessage="true" includeMeta="true" />
+        </Http>
     </Appenders>
 
     <Loggers>
@@ -11,6 +15,7 @@
 
         <Root level="DEBUG">
             <AppenderRef ref="Console"/>
+            <AppenderRef ref="HTTP"/>
         </Root>
     </Loggers>
 </Configuration>

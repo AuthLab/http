@@ -29,13 +29,17 @@ import org.authlab.http.Response
 import org.authlab.http.ResponseLine
 import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
+import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.ByteBodyReader
 import org.authlab.http.bodies.EmptyBodyWriter
 import org.authlab.http.bodies.TextBody
 import org.authlab.http.bodies.TextBodyReader
 import org.authlab.util.loggerFor
 import java.io.Closeable
+import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
+import java.io.PushbackInputStream
 import java.net.Socket
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadPoolExecutor
@@ -75,14 +79,21 @@ class Server(private val listeners: List<ServerListener>,
     }
 
     private fun onConnect(socket: Socket, listener: ServerListener) {
-        _logger.trace("Handling connection on other thread")
+        _logger.debug("Incoming connection")
 
         _threadPool.execute({
-            _logger.trace("Handling connection")
+            _logger.debug("Handling connection")
+
+            val inputStream = PushbackInputStream(socket.inputStream)
+            val outputStream = socket.outputStream
 
             try {
                 do {
-                    val request = Request.fromInputStreamWithoutBody(socket.inputStream)
+                    if (!waitForInput(inputStream)) break
+
+                    val request = Request.fromInputStreamWithoutBody(inputStream)
+
+                    _logger.info("Incoming request: {}", request.requestLine)
 
                     val context = MutableContext()
 
@@ -95,12 +106,18 @@ class Server(private val listeners: List<ServerListener>,
                     var serverResponse: ServerResponse
 
                     if (handler != null) {
-                        val requestResponsePair = handle(handler, request, context, socket.inputStream, listener.secure)
+                        val requestResponsePair = handle(handler, request, context, inputStream, listener.secure)
                         serverRequest = requestResponsePair.first
                         serverResponse = requestResponsePair.second
                     } else {
-                        serverRequest = ServerRequest(request, context, ByteBodyReader().read(socket.inputStream, request.headers).getBody(), if (listener.secure) "https" else "http")
+                        serverRequest = ServerRequest(request, context,
+                                ByteBodyReader().read(inputStream, request.headers).getBody(),
+                                if (listener.secure) "https" else "http")
                         serverResponse = ServerResponse(Response(ResponseLine(404, "Not Found")), EmptyBodyWriter())
+                    }
+
+                    if (serverRequest.keepAlive) {
+                        _logger.debug("Connection keep-alive requested")
                     }
 
                     transformers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
@@ -110,19 +127,51 @@ class Server(private val listeners: List<ServerListener>,
                                 serverResponse = transformer.onResponse(serverRequest, serverResponse, context)
                             }
 
-                    serverResponse.internalResponse
-                            .write(socket.outputStream, serverResponse.bodyWriter)
+                    writeResponse(serverResponse.internalResponse, outputStream, serverResponse.bodyWriter)
                 } while (!socket.isClosed && serverRequest.keepAlive)
             } catch (e: Exception) {
                 _logger.warn("Error processing request", e)
 
-                Response(ResponseLine(500, "Server Error"))
-                        .write(socket.outputStream)
+                writeResponse(Response(ResponseLine(500, "Server Error")), outputStream)
             } finally {
                 _logger.debug("Closing socket")
                 socket.close()
             }
         })
+    }
+
+    private fun waitForInput(inputStream: PushbackInputStream): Boolean {
+        try {
+            _logger.debug("Waiting for incoming request")
+
+            val byte = inputStream.read()
+
+            if (byte == -1) {
+                _logger.debug("Connection closed by other side")
+                return false
+            }
+
+            inputStream.unread(byte)
+        } catch (e: IOException) {
+            _logger.trace("Exception waiting for request", e)
+            return false
+        }
+
+        return true
+    }
+
+    private fun writeResponse(response: Response, outputStream: OutputStream, bodyWriter: BodyWriter? = null) {
+        _logger.info("Outgoing response: {}", response.responseLine)
+
+        try {
+            if (bodyWriter != null) {
+                response.write(outputStream, bodyWriter)
+            } else {
+                response.write(outputStream)
+            }
+        } catch (e: IOException) {
+            _logger.warn("Failed to send response", e)
+        }
     }
 
     private fun <B : Body> handle(handler: Handler<B>, request: Request, context: MutableContext, inputStream: InputStream, secure: Boolean):

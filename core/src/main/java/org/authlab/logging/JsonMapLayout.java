@@ -106,6 +106,10 @@ public class JsonMapLayout extends AbstractStringLayout
             jsonData.put("logger", event.getLoggerName());
             jsonData.put("level", event.getLevel().toString());
             jsonData.put("timeMillis", event.getTimeMillis());
+            jsonData.put("thread", event.getThreadName());
+            jsonData.put("marker", event.getMarker());
+            jsonData.put("source", event.getSource());
+            jsonData.put("exception", event.getThrown());
 
             Optional.ofNullable(event.getMarker())
                     .ifPresent(marker -> jsonData.put("marker", marker.toString()));
