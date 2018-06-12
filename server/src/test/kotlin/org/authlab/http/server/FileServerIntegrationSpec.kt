@@ -31,9 +31,10 @@ import org.authlab.http.bodies.TextBody
 import org.authlab.http.client.buildClient
 import org.authlab.http.client.getText
 import org.authlab.util.randomPort
-import java.io.File
-import java.io.FileNotFoundException
 import java.net.URI
+import java.nio.file.Files
+import java.nio.file.NoSuchFileException
+import java.nio.file.Paths
 
 class FileServerIntegrationSpec : StringSpec() {
     override fun isInstancePerTest() = false
@@ -90,16 +91,16 @@ class FileServerIntegrationSpec : StringSpec() {
 
         println(completeFilePath)
 
-        val fileInputStream = try {
-            File(completeFilePath).inputStream()
-        } catch (e: FileNotFoundException) {
+        val inputStream = try {
+            Files.newInputStream(Paths.get(completeFilePath))
+        } catch (e: NoSuchFileException) {
             ClassLoader.getSystemResourceAsStream(completeFilePath)
         }
 
         return ServerResponseBuilder {
             status(200 to "OK")
             header("Content-Type" to "text/html")
-            body(StreamBodyWriter(fileInputStream))
+            body(StreamBodyWriter(inputStream))
         }
     }
 }
