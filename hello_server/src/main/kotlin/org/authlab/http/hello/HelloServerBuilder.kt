@@ -107,6 +107,12 @@ class HelloServerBuilder private constructor() {
         init()
     }
 
+    var threadPoolSize: Int
+        get() = serverBuilder.threadPoolSize
+        set(size) {
+            serverBuilder.threadPoolSize = size
+        }
+
     fun listen(init: ServerListenerBuilder.() -> Unit) {
         serverBuilder.listen(init)
     }
