@@ -67,6 +67,8 @@ class ServerListener(val inetAddress: InetAddress, val port: Int,
 
         val socket: ServerSocket = _socket!!
 
+        _logger.info("Accepting incoming connections on ${inetAddress.hostAddress}:$port")
+
         while (_running && !socket.isClosed) {
             try {
                 onAccept(socket.accept(), this)
