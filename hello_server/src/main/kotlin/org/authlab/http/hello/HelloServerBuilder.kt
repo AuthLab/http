@@ -26,9 +26,7 @@ package org.authlab.http.hello
 
 import org.authlab.http.Cookie
 import org.authlab.http.bodies.TextBodyWriter
-import org.authlab.http.server.Server
 import org.authlab.http.server.ServerBuilder
-import org.authlab.http.server.ServerListenerBuilder
 import org.authlab.http.server.ServerResponseBuilder
 import org.authlab.util.loggerFor
 import org.slf4j.MDC
@@ -37,8 +35,11 @@ import java.util.UUID
 
 private val logger = loggerFor("Hello-Server")
 
-class HelloServerBuilder private constructor() {
-    private val serverBuilder = ServerBuilder {
+class HelloServerBuilder private constructor() : ServerBuilder() {
+    init {
+        logger.info("initializing default settings")
+
+        // Add transaction- and session ID to context
         filter {
             onRequest { request, context ->
                 context.data["transaction_id"] = UUID.randomUUID()
@@ -47,6 +48,7 @@ class HelloServerBuilder private constructor() {
                 null
             }
         }
+
         filter {
             entryPoint = "/reject"
             onRequest { _, _ ->
@@ -56,6 +58,8 @@ class HelloServerBuilder private constructor() {
                 }.build()
             }
         }
+
+        // Update MDC
         filter {
             onRequest { _, context ->
                 MDC.clear()
@@ -64,6 +68,8 @@ class HelloServerBuilder private constructor() {
                 null
             }
         }
+
+        // Set session cookie
         transform {
             onResponse { request, response, context ->
                 ServerResponseBuilder(response) {
@@ -79,12 +85,15 @@ class HelloServerBuilder private constructor() {
                 }.build()
             }
         }
+
+        // Clear MDC
         transform {
             onResponse { _, response, _ ->
                 MDC.clear()
                 response
             }
         }
+
         default { request ->
             logger.info("Saying hello")
 
@@ -97,27 +106,10 @@ class HelloServerBuilder private constructor() {
             status(200 to "OK")
             body(TextBodyWriter(sb.toString()))
         }
-        handle("/foo") { _ ->
-            status(200 to "OK")
-            body(TextBodyWriter("hello foo"))
-        }
     }
 
     constructor(init: HelloServerBuilder.() -> Unit) : this() {
+        logger.info("initializing additional settings")
         init()
-    }
-
-    var threadPoolSize: Int
-        get() = serverBuilder.threadPoolSize
-        set(size) {
-            serverBuilder.threadPoolSize = size
-        }
-
-    fun listen(init: ServerListenerBuilder.() -> Unit) {
-        serverBuilder.listen(init)
-    }
-
-    fun build(): Server {
-        return serverBuilder.build()
     }
 }

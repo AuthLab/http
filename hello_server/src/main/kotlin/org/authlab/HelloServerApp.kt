@@ -26,6 +26,7 @@
 
 package org.authlab
 
+import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.hello.HelloServerBuilder
 import java.net.InetAddress
 
@@ -97,6 +98,11 @@ fun main(args: Array<String>) {
             this.host = inetAddress.hostAddress
             this.port = port
             this.backlog = backlog
+        }
+
+        handle("/foo") {
+            status { 200 to "OK" }
+            body { TextBodyWriter("bar") }
         }
     }.build().start()
 }

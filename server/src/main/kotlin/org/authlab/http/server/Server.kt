@@ -230,7 +230,7 @@ fun buildServer(init: ServerBuilder.() -> Unit) = ServerBuilder(init).build()
 annotation class ServerMarker
 
 @ServerMarker
-class ServerBuilder constructor() {
+open class ServerBuilder constructor() {
     var threadPoolSize: Int = 100
 
     private val _listenerBuilders = mutableListOf<ServerListenerBuilder>()
