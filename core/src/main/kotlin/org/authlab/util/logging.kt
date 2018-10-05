@@ -28,7 +28,7 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.slf4j.MarkerFactory
 
-inline fun <reified T:Any> loggerFor() = LoggerFactory.getLogger(T::class.java)
+inline fun <reified T:Any> loggerFor() = LoggerFactory.getLogger(T::class.java)!!
 
 fun loggerFor(name: String) = LoggerFactory.getLogger(name)
 

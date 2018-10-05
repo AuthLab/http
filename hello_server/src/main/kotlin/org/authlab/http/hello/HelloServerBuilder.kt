@@ -28,8 +28,10 @@ import org.authlab.http.Cookie
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.server.ServerBuilder
 import org.authlab.http.server.ServerResponseBuilder
+import org.authlab.http.server.get
 import org.authlab.util.loggerFor
 import org.slf4j.MDC
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 
@@ -39,12 +41,30 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
     init {
         logger.info("initializing default settings")
 
+        context { "session_manager" to SessionManager() }
+
         // Add transaction- and session ID to context
         filter {
             onRequest { request, context ->
                 context.data["transaction_id"] = UUID.randomUUID()
-                context.data["session_id"] = request.cookies["session"]
-                        ?.value ?: UUID.randomUUID()
+
+                val sessionManager = context.get<SessionManager>("session_manager")!!
+                val session = request.cookies["session"]
+                        ?.let {
+                            sessionManager.getSession(it.value)?.takeIf { it.expires.isAfter(Instant.now()) }
+                        } ?: sessionManager.createSession(Duration.ofMinutes(1L))
+
+                context.data["session"] = session
+                null
+            }
+        }
+
+        // Update MDC
+        filter {
+            onRequest { _, context ->
+                MDC.clear()
+                context.data["transaction_id"]?.also { MDC.put("transaction", it.toString()) }
+                context.get<Session>("session")?.also { MDC.put("session", it.id.toString()) }
                 null
             }
         }
@@ -59,16 +79,6 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
             }
         }
 
-        // Update MDC
-        filter {
-            onRequest { _, context ->
-                MDC.clear()
-                context.data["transaction_id"]?.also { MDC.put("transaction", it.toString()) }
-                context.data["session_id"]?.also { MDC.put("session", it.toString()) }
-                null
-            }
-        }
-
         // Set session cookie
         transform {
             onResponse { request, response, context ->
@@ -76,10 +86,10 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
                     context.data["transaction_id"]?.also {
                         header("Transaction" to "$it")
                     }
-                    context.data["session_id"]?.also {
-                        if (request.cookies["session"]?.value != it) {
-                            cookie(Cookie("session", "$it", path = request.path,
-                                    httpOnly = true, expires = Instant.now().plusSeconds(60)))
+                    context.get<Session>("session")?.also {
+                        if (request.cookies["session"]?.value != it.id.toString()) {
+                            cookie(Cookie("session", it.id.toString(), path = request.path,
+                                    httpOnly = true))
                         }
                     }
                 }.build()
@@ -99,8 +109,13 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
 
             val sb = StringBuilder()
             sb.append("hello")
-            request.context.data.forEach { key, value ->
-                sb.append('\n').append(key).append('=').append(value)
+
+            request.context.data["session"]?.also {
+                sb.append('\n').append("session").append('=').append(it)
+            }
+
+            request.context.data["transaction_id"]?.also {
+                sb.append('\n').append("transaction").append('=').append(it)
             }
 
             status(200 to "OK")

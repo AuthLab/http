@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2018 Johan Fylling
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -22,28 +22,43 @@
  * SOFTWARE.
  */
 
-package org.authlab.http.server
+package org.authlab.http.hello
 
-import kotlin.reflect.KClass
+import java.time.Duration
+import java.time.Instant
+import java.util.UUID
 
-interface Context {
-    val data: Map<String, Any>
+class SessionManager {
+    private val sessions: MutableMap<UUID, Session> = mutableMapOf()
 
-    fun <T:Any> get(key: String, type: KClass<out T>): T? {
-        return type.javaObjectType.cast(data[key])
+    fun createSession(timeToLive: Duration = Duration.ofHours(1L)): Session {
+        val session = Session(UUID.randomUUID(), Instant.now(), timeToLive)
+        sessions[session.id] = session
+        return session
+    }
+
+    fun getSession(id: UUID): Session? {
+        return sessions[id]
+    }
+
+    fun getSession(id: String): Session? {
+        return try {
+            getSession(UUID.fromString(id))
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
+    override fun toString(): String {
+        return sessions.toString()
     }
 }
 
-inline fun <reified T:Any> Context.get(key: String): T? {
-    return get(key, T::class)
-}
+class Session(val id: UUID, val created: Instant, val timeToLive: Duration) {
+    val expires: Instant
+            get() = created.plus(timeToLive)
 
-class MutableContext(data: Map<String, Any> = mapOf()) : Context {
-    override val data: MutableMap<String, Any> = data.toMutableMap()
-
-    companion object {
-        fun mutableCopyOf(other: Context): MutableContext {
-            return MutableContext(other.data)
-        }
+    override fun toString(): String {
+        return id.toString()
     }
 }

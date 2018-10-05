@@ -50,6 +50,7 @@ class Server(private val listeners: List<ServerListener>,
              private val handlers: List<Handler<*>> = emptyList(),
              private val filters: List<Filter> = emptyList(),
              private val transformers: List<Transformer> = emptyList(),
+             private val rootContext: Context,
              threadPoolSize: Int = 50) : Closeable {
     companion object {
         private val _logger = loggerFor<Server>()
@@ -81,7 +82,7 @@ class Server(private val listeners: List<ServerListener>,
     private fun onConnect(socket: Socket, listener: ServerListener) {
         _logger.debug("Incoming connection")
 
-        _threadPool.execute({
+        _threadPool.execute {
             _logger.debug("Handling connection")
 
             val inputStream = PushbackInputStream(socket.inputStream)
@@ -95,7 +96,7 @@ class Server(private val listeners: List<ServerListener>,
 
                     _logger.info("Incoming request: {}", request.requestLine)
 
-                    val context = MutableContext()
+                    val context = MutableContext.mutableCopyOf(rootContext)
 
                     // Find handler by path
                     val handler = handlers.firstOrNull {
@@ -137,7 +138,7 @@ class Server(private val listeners: List<ServerListener>,
                 _logger.debug("Closing socket")
                 socket.close()
             }
-        })
+        }
     }
 
     private fun waitForInput(inputStream: PushbackInputStream): Boolean {
@@ -233,6 +234,7 @@ annotation class ServerMarker
 open class ServerBuilder constructor() {
     var threadPoolSize: Int = 100
 
+    private val _contextData = mutableMapOf<String, Any>()
     private val _listenerBuilders = mutableListOf<ServerListenerBuilder>()
     private val _filterBuilders = mutableListOf<FilterBuilder>()
     private val _transformerBuilders = mutableListOf<TransformerBuilder>()
@@ -241,6 +243,11 @@ open class ServerBuilder constructor() {
 
     constructor(init: ServerBuilder.() -> Unit) : this() {
         init()
+    }
+
+    fun context(init: () -> Pair<String, Any>) {
+        val pair = init()
+        _contextData[pair.first] = pair.second
     }
 
     fun listen(init: ServerListenerBuilder.() -> Unit) {
@@ -310,6 +317,6 @@ open class ServerBuilder constructor() {
 
         _defaultHandlerBuilder?.apply { handlers.add(build()) }
 
-        return Server(listeners, handlers, filters, transformers, threadPoolSize)
+        return Server(listeners, handlers, filters, transformers, MutableContext(_contextData), threadPoolSize)
     }
 }
