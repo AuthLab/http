@@ -39,7 +39,7 @@ class ServerRequest<out B : Body> internal constructor(request: Request,
                                                        val context: Context,
                                                        private val body: B,
                                                        private val scheme: String) {
-    val _request = request.withBody(body)
+    private val _request = request.withBody(body)
 
     val requestLine: RequestLine
         get() = _request.requestLine

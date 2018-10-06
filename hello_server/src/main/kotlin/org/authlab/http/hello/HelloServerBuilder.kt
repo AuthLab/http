@@ -44,28 +44,26 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
         context { "session_manager" to SessionManager() }
 
         // Add transaction- and session ID to context
-        filter {
+        initialize {
             onRequest { request, context ->
                 context.data["transaction_id"] = UUID.randomUUID()
 
                 val sessionManager = context.get<SessionManager>("session_manager")!!
                 val session = request.cookies["session"]
-                        ?.let {
-                            sessionManager.getSession(it.value)?.takeIf { it.expires.isAfter(Instant.now()) }
+                        ?.let { cookie ->
+                            sessionManager.getSession(cookie.value)?.takeIf { it.expires.isAfter(Instant.now()) }
                         } ?: sessionManager.createSession(Duration.ofMinutes(1L))
 
                 context.data["session"] = session
-                null
             }
         }
 
         // Update MDC
-        filter {
+        initialize {
             onRequest { _, context ->
                 MDC.clear()
                 context.data["transaction_id"]?.also { MDC.put("transaction", it.toString()) }
                 context.get<Session>("session")?.also { MDC.put("session", it.id.toString()) }
-                null
             }
         }
 
@@ -97,10 +95,9 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
         }
 
         // Clear MDC
-        transform {
-            onResponse { _, response, _ ->
+        finally {
+            onResponse { _, _, _ ->
                 MDC.clear()
-                response
             }
         }
 

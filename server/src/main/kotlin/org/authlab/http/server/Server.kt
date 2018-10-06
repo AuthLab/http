@@ -31,6 +31,7 @@ import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.ByteBodyReader
+import org.authlab.http.bodies.EmptyBody
 import org.authlab.http.bodies.EmptyBodyWriter
 import org.authlab.http.bodies.TextBody
 import org.authlab.http.bodies.TextBodyReader
@@ -44,12 +45,13 @@ import java.net.Socket
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
-import kotlin.concurrent.thread
 
 class Server(private val listeners: List<ServerListener>,
              private val handlers: List<Handler<*>> = emptyList(),
              private val filters: List<Filter> = emptyList(),
              private val transformers: List<Transformer> = emptyList(),
+             private val initializers: List<Initializer> = emptyList(),
+             private val finalizers: List<Finalizer> = emptyList(),
              private val rootContext: Context,
              threadPoolSize: Int = 50) : Closeable {
     companion object {
@@ -82,6 +84,8 @@ class Server(private val listeners: List<ServerListener>,
     private fun onConnect(socket: Socket, listener: ServerListener) {
         _logger.debug("Incoming connection")
 
+        val protocol = if (listener.secure) "https" else "http"
+
         _threadPool.execute {
             _logger.debug("Handling connection")
 
@@ -94,9 +98,18 @@ class Server(private val listeners: List<ServerListener>,
 
                     val request = Request.fromInputStreamWithoutBody(inputStream)
 
-                    _logger.info("Incoming request: {}", request.requestLine)
-
                     val context = MutableContext.mutableCopyOf(rootContext)
+
+                    val noBodyRequest = ServerRequest(request, context, EmptyBody(), protocol)
+
+                    initializers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
+                            .forEach { initializer ->
+                                _logger.trace("Initializing transaction with {}", initializer)
+
+                                initializer.onRequest(noBodyRequest, context)
+                            }
+
+                    _logger.info("Incoming request: {}", request.requestLine)
 
                     // Find handler by path
                     val handler = handlers.firstOrNull {
@@ -113,7 +126,7 @@ class Server(private val listeners: List<ServerListener>,
                     } else {
                         serverRequest = ServerRequest(request, context,
                                 ByteBodyReader().read(inputStream, request.headers).getBody(),
-                                if (listener.secure) "https" else "http")
+                                protocol)
                         serverResponse = ServerResponse(Response(ResponseLine(404, "Not Found")), EmptyBodyWriter())
                     }
 
@@ -129,11 +142,21 @@ class Server(private val listeners: List<ServerListener>,
                             }
 
                     writeResponse(serverResponse.internalResponse, outputStream, serverResponse.bodyWriter)
+
+                    finalizers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
+                            .forEach { finalizer ->
+                                _logger.trace("Finalizing transaction with {}", finalizer)
+
+                                finalizer.onResponse(serverRequest, serverResponse, context)
+                            }
+
                 } while (!socket.isClosed && serverRequest.keepAlive)
             } catch (e: Exception) {
                 _logger.warn("Error processing request", e)
 
                 writeResponse(Response(ResponseLine(500, "Server Error")), outputStream)
+
+                // TODO: Also call finalizers here?
             } finally {
                 _logger.debug("Closing socket")
                 socket.close()
@@ -238,6 +261,8 @@ open class ServerBuilder constructor() {
     private val _listenerBuilders = mutableListOf<ServerListenerBuilder>()
     private val _filterBuilders = mutableListOf<FilterBuilder>()
     private val _transformerBuilders = mutableListOf<TransformerBuilder>()
+    private val _initalizerBuilders = mutableListOf<InitializerBuilder>()
+    private val _finalizerBuilders = mutableListOf<FinalizerBuilder>()
     private val _handlerBuilders = mutableListOf<HandlerBuilder<*, *>>()
     private var _defaultHandlerBuilder: HandlerBuilder<*, *>? = null
 
@@ -260,6 +285,14 @@ open class ServerBuilder constructor() {
 
     fun transform(init: TransformerBuilder.() -> Unit) {
         _transformerBuilders.add(TransformerBuilder(init))
+    }
+
+    fun initialize(init: InitializerBuilder.() -> Unit) {
+        _initalizerBuilders.add(InitializerBuilder(init))
+    }
+
+    fun finally(init: FinalizerBuilder.() -> Unit) {
+        _finalizerBuilders.add(FinalizerBuilder(init))
     }
 
     fun <R : BodyReader<B>, B : Body> handleCallback(entryPoint: String, bodyReader: R, handle: (ServerRequest<B>) -> ServerResponseBuilder) {
@@ -312,11 +345,16 @@ open class ServerBuilder constructor() {
 
         val transformers = _transformerBuilders.map(TransformerBuilder::build)
 
+        val initializers = _initalizerBuilders.map(InitializerBuilder::build)
+
+        val finalizers = _finalizerBuilders.map(FinalizerBuilder::build)
+
         val handlers = _handlerBuilders.map(HandlerBuilder<*, *>::build)
                 .toMutableList()
 
         _defaultHandlerBuilder?.apply { handlers.add(build()) }
 
-        return Server(listeners, handlers, filters, transformers, MutableContext(_contextData), threadPoolSize)
+        return Server(listeners, handlers, filters, transformers, initializers, finalizers,
+                MutableContext(_contextData), threadPoolSize)
     }
 }
