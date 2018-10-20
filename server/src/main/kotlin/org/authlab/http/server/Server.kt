@@ -24,6 +24,7 @@
 
 package org.authlab.http.server
 
+import org.authlab.http.Header
 import org.authlab.http.Request
 import org.authlab.http.Response
 import org.authlab.http.ResponseLine
@@ -53,7 +54,8 @@ class Server(private val listeners: List<ServerListener>,
              private val initializers: List<Initializer> = emptyList(),
              private val finalizers: List<Finalizer> = emptyList(),
              private val rootContext: Context,
-             threadPoolSize: Int = 50) : Closeable {
+             private val upgradeInsecureRequestsTo: String?,
+             threadPoolSize: Int) : Closeable {
     companion object {
         private val _logger = loggerFor<Server>()
     }
@@ -111,35 +113,48 @@ class Server(private val listeners: List<ServerListener>,
 
                     _logger.info("Incoming request: {}", request.requestLine)
 
-                    // Find handler by path
-                    val handler = handlers.firstOrNull {
-                        it.pathPattern.matcher(request.requestLine.location.safePath).matches()
-                    }
-
                     val serverRequest: ServerRequest<*>
                     var serverResponse: ServerResponse
 
-                    if (handler != null) {
-                        val requestResponsePair = handle(handler, request, context, inputStream, listener.secure)
-                        serverRequest = requestResponsePair.first
-                        serverResponse = requestResponsePair.second
-                    } else {
+                    var keepAlive = false
+
+                    if (!listener.secure && noBodyRequest.upgradeInsecureRequests && upgradeInsecureRequestsTo != null) {
+                        _logger.info("Upgrading insecure request")
+
                         serverRequest = ServerRequest(request, context,
                                 ByteBodyReader().read(inputStream, request.headers).getBody(),
                                 protocol)
-                        serverResponse = ServerResponse(Response(ResponseLine(404, "Not Found")), EmptyBodyWriter())
+
+                        serverResponse = ServerResponse(Response(ResponseLine(307, "Moved Temporarily"))
+                                .withHeader(Header("Location", upgradeInsecureRequestsTo))
+                                .withHeader(Header("Vary", "Upgrade-Insecure-Requests")),
+                                EmptyBodyWriter())
+                    } else {
+                        // Find handler by path
+                        val handler = handlers.firstOrNull {
+                            it.pathPattern.matcher(request.requestLine.location.safePath).matches()
+                        }
+
+                        if (handler != null) {
+                            val requestResponsePair = handle(handler, request, context, inputStream, listener.secure)
+                            serverRequest = requestResponsePair.first
+                            serverResponse = requestResponsePair.second
+                        } else {
+                            serverRequest = ServerRequest(request, context,
+                                    ByteBodyReader().read(inputStream, request.headers).getBody(),
+                                    protocol)
+                            serverResponse = ServerResponse(Response(ResponseLine(404, "Not Found")), EmptyBodyWriter())
+                        }
+
+                        keepAlive = serverRequest.keepAlive
+
+                        transformers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
+                                .forEach { transformer ->
+                                    _logger.trace("Transforming response with {}", transformer)
+
+                                    serverResponse = transformer.onResponse(serverRequest, serverResponse, context)
+                                }
                     }
-
-                    if (serverRequest.keepAlive) {
-                        _logger.debug("Connection keep-alive requested")
-                    }
-
-                    transformers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
-                            .forEach { transformer ->
-                                _logger.trace("Transforming response with {}", transformer)
-
-                                serverResponse = transformer.onResponse(serverRequest, serverResponse, context)
-                            }
 
                     writeResponse(serverResponse.internalResponse, outputStream, serverResponse.bodyWriter)
 
@@ -150,7 +165,10 @@ class Server(private val listeners: List<ServerListener>,
                                 finalizer.onResponse(serverRequest, serverResponse, context)
                             }
 
-                } while (!socket.isClosed && serverRequest.keepAlive)
+                    if (keepAlive) {
+                        _logger.debug("Connection keep-alive requested")
+                    }
+                } while (!socket.isClosed && keepAlive)
             } catch (e: Exception) {
                 _logger.warn("Error processing request", e)
 
@@ -256,6 +274,7 @@ annotation class ServerMarker
 @ServerMarker
 open class ServerBuilder constructor() {
     var threadPoolSize: Int = 100
+    var upgradeInsecureRequestsTo: String? = null
 
     private val _contextData = mutableMapOf<String, Any>()
     private val _listenerBuilders = mutableListOf<ServerListenerBuilder>()
@@ -355,6 +374,6 @@ open class ServerBuilder constructor() {
         _defaultHandlerBuilder?.apply { handlers.add(build()) }
 
         return Server(listeners, handlers, filters, transformers, initializers, finalizers,
-                MutableContext(_contextData), threadPoolSize)
+                MutableContext(_contextData), upgradeInsecureRequestsTo, threadPoolSize)
     }
 }

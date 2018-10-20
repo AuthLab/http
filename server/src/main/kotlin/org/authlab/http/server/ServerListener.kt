@@ -47,7 +47,7 @@ class ServerListener(val inetAddress: InetAddress, val port: Int,
         get() = _initialized
 
     fun setup () {
-        _logger.info("Creating server socket on ${inetAddress.hostAddress}:$port (backlog=$backlog)")
+        _logger.info("Creating server socket on ${inetAddress.hostAddress}:$port (backlog=$backlog, secure=$secure)")
 
         _socket = if (secure) {
             sslContext.serverSocketFactory.createServerSocket(port, backlog, inetAddress)

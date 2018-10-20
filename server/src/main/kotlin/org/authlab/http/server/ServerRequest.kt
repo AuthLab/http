@@ -74,6 +74,10 @@ class ServerRequest<out B : Body> internal constructor(request: Request,
         get() = _request.headers
                 .getHeader("Connection")?.getFirst().equals("Keep-Alive", true)
 
+    val upgradeInsecureRequests: Boolean
+        get() = _request.headers
+                .getHeader("Upgrade-Insecure-Requests")?.getFirst().equals("1")
+
     fun toHar() = _request.toHar(scheme)
 
     fun getBody(): B

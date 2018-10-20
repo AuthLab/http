@@ -52,7 +52,7 @@ abstract class AbstractBodyReader<out B : Body> : BodyReader<B> {
 
         val length = headers["Content-Length"]?.getFirstAsInt() ?: let {
             if (!chunked) {
-                _logger.debug("No Content-Length but also no chunked Transfer-Encoding; assuming zero length")
+                _logger.debug("No Content-Length and no chunked Transfer-Encoding; assuming zero length")
             }
             0
         }

@@ -25,14 +25,17 @@
 package org.authlab.http.echo
 
 import org.authlab.http.bodies.JsonBodyWriter
-import org.authlab.http.server.Server
 import org.authlab.http.server.ServerBuilder
-import org.authlab.http.server.ServerListenerBuilder
 import org.authlab.http.server.ServerMarker
+import org.authlab.util.loggerFor
+
+private val logger = loggerFor("Echo-Server")
 
 @ServerMarker
-class EchoServerBuilder private constructor() {
-    private val _serverBuilder = ServerBuilder {
+class EchoServerBuilder private constructor() : ServerBuilder() {
+    init {
+        logger.info("initializing default settings")
+
         default { request ->
             status { 200 to "OK" }
             body { JsonBodyWriter(request.toHar(), pretty = true) }
@@ -40,20 +43,7 @@ class EchoServerBuilder private constructor() {
     }
 
     constructor(init: EchoServerBuilder.() -> Unit) : this() {
+        logger.info("initializing additional settings")
         init()
-    }
-
-    fun listen(init: ServerListenerBuilder.() -> Unit) {
-        _serverBuilder.listen(init)
-    }
-
-    var threadPoolSize: Int
-        get() = _serverBuilder.threadPoolSize
-        set(size) {
-            _serverBuilder.threadPoolSize = size
-        }
-
-    fun build(): Server {
-        return _serverBuilder.build()
     }
 }
