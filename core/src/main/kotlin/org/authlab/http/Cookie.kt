@@ -29,14 +29,14 @@ import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
-
 class Cookie(val name: String,
              val value: String,
              val path: String? = null,
              val domain: String? = null,
              val expires: Instant? = null,
              val httpOnly: Boolean? = null,
-             val secure: Boolean? = null) {
+             val secure: Boolean? = null,
+             val sameSite: SameSite? = null) {
     companion object {
         fun fromString(input: String): Cookie {
             val splitInput = input.split(";")
@@ -52,7 +52,7 @@ class Cookie(val name: String,
                 val directiveName = directivePair.first().trim()
                 if (directiveName.isNotEmpty()) {
                     val directiveValue = if (directivePair.size > 1) directivePair[1] else ""
-                    directives.put(directiveName.toUpperCase(), directiveValue)
+                    directives[directiveName.toUpperCase()] = directiveValue
                 }
             }
 
@@ -61,7 +61,8 @@ class Cookie(val name: String,
                     directives["DOMAIN"],
                     directives["EXPIRES"]?.let { Instant.from(DateTimeFormatter.RFC_1123_DATE_TIME.parse(it)) },
                     directives["HTTPONLY"]?.let { it.isEmpty() || it.toBoolean() },
-                    directives["SECURE"]?.let { it.isEmpty() || it.toBoolean() })
+                    directives["SECURE"]?.let { it.isEmpty() || it.toBoolean() },
+                    directives["SAMESITE"]?.let { if (it.isEmpty()) SameSite.LAX else SameSite.fromString(it) })
         }
     }
 
@@ -89,6 +90,7 @@ class Cookie(val name: String,
                 expiresString?.let { sb.append("; Expires=").append(it) }
                 httpOnly?.let { sb.append("; HttpOnly") }
                 secure?.let { sb.append("; Secure") }
+                sameSite?.let { sb.append("; SameSite=").append(it) }
             }
         }.toString()
     }
@@ -99,12 +101,30 @@ class Cookie(val name: String,
     fun toHar(): Map<String, *> {
         val har: MutableMap<String, Any> = mutableMapOf("name" to name, "value" to value)
 
-        path?.also { har.put("path", it) }
-        domain?.also { har.put("domain", it) }
-        expires?.also { har.put("expires", it.toString()) }
-        httpOnly?.also { har.put("httpOnly", it) }
-        secure?.also { har.put("secure", it) }
+        path?.also { har["path"] = it }
+        domain?.also { har["domain"] = it }
+        expires?.also { har["expires"] = it.toString() }
+        httpOnly?.also { har["httpOnly"] = it }
+        secure?.also { har["secure"] = it }
+        sameSite?.also { har["SameSite"] = it }
 
         return har
+    }
+}
+
+/**
+ * https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-02#section-5.3.7
+ */
+enum class SameSite(val mode: String) {
+    LAX("Lax"), STRICT("Strict");
+
+    override fun toString() = mode
+
+    companion object {
+        fun fromString(mode: String): SameSite? {
+            return values().first { value ->
+                value.mode.equals(mode, ignoreCase = true)
+            }
+        }
     }
 }

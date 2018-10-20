@@ -25,8 +25,10 @@
 package org.authlab.http.hello
 
 import org.authlab.http.Cookie
+import org.authlab.http.SameSite
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.server.ServerBuilder
+import org.authlab.http.server.ServerMarker
 import org.authlab.http.server.ServerResponseBuilder
 import org.authlab.http.server.get
 import org.authlab.util.loggerFor
@@ -37,6 +39,7 @@ import java.util.UUID
 
 private val logger = loggerFor("Hello-Server")
 
+@ServerMarker
 class HelloServerBuilder private constructor() : ServerBuilder() {
     init {
         logger.info("initializing default settings")
@@ -87,7 +90,7 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
                     context.get<Session>("session")?.also {
                         if (request.cookies["session"]?.value != it.id.toString()) {
                             cookie(Cookie("session", it.id.toString(), path = request.path,
-                                    httpOnly = true))
+                                    httpOnly = true, sameSite = SameSite.STRICT))
                         }
                     }
                 }.build()
