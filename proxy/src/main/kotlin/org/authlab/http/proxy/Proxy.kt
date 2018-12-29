@@ -154,7 +154,7 @@ open class Proxy(private val incomingSocket: Socket,
 
                 onTransaction?.let {
                     _logger.trace("Calling on-transaction callback")
-                    it(Transaction(outgoingRequest, incomingResponse,
+                    it(Transaction(outgoingRequest, outgoingResponse,
                             transactionStartInstant, transactionStopInstant, scheme))
                 }
             }
@@ -210,6 +210,7 @@ open class Proxy(private val incomingSocket: Socket,
         var headers = incomingResponse.headers
                 .withoutHeaders("Content-Length")
                 .withoutHeaders("Transfer-Encoding")
+                .withHeader(Header("Proxy-Token", proxyToken))
 
         incomingResponse.body.writer.contentLength?.also {
             headers = headers.withHeader("Content-length", "$it")
