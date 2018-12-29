@@ -55,18 +55,12 @@ class Server(private val listeners: List<ServerListener>,
              private val finalizers: List<Finalizer> = emptyList(),
              private val rootContext: Context,
              private val upgradeInsecureRequestsTo: String?,
-             threadPoolSize: Int) : Closeable {
+             private val threadPool: ThreadPoolExecutor) : Closeable {
     companion object {
         private val _logger = loggerFor<Server>()
     }
 
     private var _running = false
-    private val _threadPool: ThreadPoolExecutor
-
-    init {
-        _logger.info("Creating thread pool (size=$threadPoolSize)")
-        _threadPool = Executors.newFixedThreadPool(threadPoolSize) as ThreadPoolExecutor
-    }
 
     val initialized: Boolean
         get() = listeners.all { it.initialized }
@@ -79,7 +73,7 @@ class Server(private val listeners: List<ServerListener>,
         listeners.forEach { listener ->
             listener.onAccept = ::onConnect
             listener.setup()
-            _threadPool.execute(listener)
+            threadPool.execute(listener)
         }
     }
 
@@ -88,7 +82,7 @@ class Server(private val listeners: List<ServerListener>,
 
         val protocol = if (listener.secure) "https" else "http"
 
-        _threadPool.execute {
+        threadPool.execute {
             _logger.debug("Handling connection")
 
             val inputStream = PushbackInputStream(socket.inputStream)
@@ -244,20 +238,20 @@ class Server(private val listeners: List<ServerListener>,
 
         listeners.forEach { it.close() }
 
-        _threadPool.shutdown() // Disable new tasks from being submitted
+        threadPool.shutdown() // Disable new tasks from being submitted
 
         try {
             // Wait a while for existing tasks to terminate
-            if (!_threadPool.awaitTermination(60, TimeUnit.SECONDS)) {
-                _threadPool.shutdownNow() // Cancel currently executing tasks
+            if (!threadPool.awaitTermination(60, TimeUnit.SECONDS)) {
+                threadPool.shutdownNow() // Cancel currently executing tasks
                 // Wait a while for tasks to respond to being cancelled
-                if (!_threadPool.awaitTermination(60, TimeUnit.SECONDS)) {
+                if (!threadPool.awaitTermination(60, TimeUnit.SECONDS)) {
                     _logger.error("Pool did not terminate")
                 }
             }
         } catch (e: InterruptedException) {
             // (Re-)Cancel if current thread also interrupted
-            _threadPool.shutdownNow()
+            threadPool.shutdownNow()
             // Preserve interrupt status
             Thread.currentThread().interrupt()
         }
@@ -275,6 +269,7 @@ annotation class ServerMarker
 open class ServerBuilder constructor() {
     var threadPoolSize: Int = 100
     var upgradeInsecureRequestsTo: String? = null
+    var threadPool: ThreadPoolExecutor? = null
 
     private val _contextData = mutableMapOf<String, Any>()
     private val _listenerBuilders = mutableListOf<ServerListenerBuilder>()
@@ -373,7 +368,9 @@ open class ServerBuilder constructor() {
 
         _defaultHandlerBuilder?.apply { handlers.add(build()) }
 
+        val threadPool = this.threadPool ?: Executors.newFixedThreadPool(threadPoolSize) as ThreadPoolExecutor
+
         return Server(listeners, handlers, filters, transformers, initializers, finalizers,
-                MutableContext(_contextData), upgradeInsecureRequestsTo, threadPoolSize)
+                MutableContext(_contextData), upgradeInsecureRequestsTo, threadPool)
     }
 }

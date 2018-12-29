@@ -100,6 +100,7 @@ class ServerListenerBuilder() {
     var secure: Boolean = false
     var backlog: Int = 50
     var sslContext: SSLContext = SSLContext.getDefault()
+//    var blocking: Boolean = true
 
     fun build(): ServerListener {
         return ServerListener(InetAddress.getByName(host), port, secure, backlog, sslContext)
