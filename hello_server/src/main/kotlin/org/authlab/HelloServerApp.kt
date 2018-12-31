@@ -28,6 +28,7 @@ package org.authlab
 
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.hello.HelloServerBuilder
+import org.authlab.http.server.authorization.basicAuthorization
 import java.net.InetAddress
 
 fun main(args: Array<String>) {
@@ -98,6 +99,10 @@ fun main(args: Array<String>) {
             this.host = inetAddress.hostAddress
             this.port = port
             this.backlog = backlog
+        }
+
+        basicAuthorization("/me") {
+            credential("foo", "bar")
         }
 
         handle("/foo") {

@@ -49,7 +49,7 @@ import java.util.concurrent.TimeUnit
 
 class Server(private val listeners: List<ServerListener>,
              private val handlers: List<Handler<*>> = emptyList(),
-             private val filters: List<Filter> = emptyList(),
+             private val filterHolders: List<FilterHolder> = emptyList(),
              private val transformers: List<Transformer> = emptyList(),
              private val initializers: List<Initializer> = emptyList(),
              private val finalizers: List<Finalizer> = emptyList(),
@@ -215,14 +215,16 @@ class Server(private val listeners: List<ServerListener>,
         val body = handler.bodyReader.read(inputStream, request.headers).getBody()
         val serverRequest = ServerRequest(request, context, body, if (secure) "https" else "http")
 
-        filters.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
-                .forEach { filter ->
-                    _logger.trace("Filtering request by {}", filter)
+        filterHolders.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
+                .forEach { filterHolder ->
+                    val filter = filterHolder.filter
+                    _logger.trace("Filtering request by {} @ {}", filter, filterHolder.path)
 
-                    val filterResponse = filter.onRequest(serverRequest, context)
-                    if (filterResponse != null) {
-                        _logger.info("Response created by filter {}", filter)
-                        return serverRequest to filterResponse
+                    try {
+                        filter.onRequest(serverRequest, context)
+                    } catch (e: FilterException) {
+                        _logger.info("Response created by filter {} @ {}", filter, filterHolder.path)
+                        return serverRequest to e.response
                     }
                 }
 
@@ -273,7 +275,7 @@ open class ServerBuilder constructor() {
 
     private val _contextData = mutableMapOf<String, Any>()
     private val _listenerBuilders = mutableListOf<ServerListenerBuilder>()
-    private val _filterBuilders = mutableListOf<FilterBuilder>()
+    private val _filterBuilders = mutableListOf<FilterHolderBuilder>()
     private val _transformerBuilders = mutableListOf<TransformerBuilder>()
     private val _initalizerBuilders = mutableListOf<InitializerBuilder>()
     private val _finalizerBuilders = mutableListOf<FinalizerBuilder>()
@@ -293,8 +295,22 @@ open class ServerBuilder constructor() {
         _listenerBuilders.add(ServerListenerBuilder(init))
     }
 
-    fun filter(init: FilterBuilder.() -> Unit) {
-        _filterBuilders.add(FilterBuilder(init))
+    fun filter(entryPoint: String, init: CallbackFilterBuilder.() -> Unit) {
+        filter(entryPoint, CallbackFilterBuilder(init))
+    }
+
+    fun filter(entryPoint: String, filterBuilder: FilterBuilder) {
+        _filterBuilders.add(FilterHolderBuilder {
+            this.entryPoint = entryPoint
+            this.filterBuilder = filterBuilder
+        })
+    }
+
+    fun filter(entryPoint: String, filter: Filter) {
+        _filterBuilders.add(FilterHolderBuilder {
+            this.entryPoint = entryPoint
+            this.filter = filter
+        })
     }
 
     fun transform(init: TransformerBuilder.() -> Unit) {
@@ -355,7 +371,7 @@ open class ServerBuilder constructor() {
             listeners.add(ServerListenerBuilder().build()) // Construct a default listener
         }
 
-        val filters = _filterBuilders.map(FilterBuilder::build)
+        val filters = _filterBuilders.map(FilterHolderBuilder::build)
 
         val transformers = _transformerBuilders.map(TransformerBuilder::build)
 

@@ -26,6 +26,7 @@ package org.authlab.http.hello
 
 import org.authlab.http.Cookie
 import org.authlab.http.SameSite
+import org.authlab.http.authentication.Subject
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.server.ServerBuilder
 import org.authlab.http.server.ServerMarker
@@ -70,13 +71,12 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
             }
         }
 
-        filter {
-            entryPoint = "/reject"
-            onRequest { _, _ ->
-                ServerResponseBuilder {
+        filter("/reject") {
+            onRequest { _, _, abort ->
+                abort {
                     status(400 to "Bad Request")
                     body(TextBodyWriter("rejected"))
-                }.build()
+                }
             }
         }
 
@@ -109,6 +109,10 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
 
             val sb = StringBuilder()
             sb.append("hello")
+
+            request.context.get<Subject>("subject")?.also {
+                sb.append(" ").append(it.username)
+            }
 
             request.context.data["session"]?.also {
                 sb.append('\n').append("session").append('=').append(it)

@@ -7,9 +7,7 @@
     </Appenders>
 
     <Loggers>
-        <Logger name="org.authlab.http" level="WARN"/>
-
-        <Root level="DEBUG">
+        <Root level="INFO">
             <AppenderRef ref="Console"/>
         </Root>
     </Loggers>

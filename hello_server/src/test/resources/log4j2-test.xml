@@ -7,11 +7,10 @@
     </Appenders>
 
     <Loggers>
-        <Logger name="org.authlab.crypto" level="DEBUG"/>
         <Logger name="org.authlab.http.client" level="TRACE"/>
         <Logger name="org.authlab.http.hello" level="TRACE"/>
 
-        <Root level="INFO">
+        <Root level="DEBUG">
             <AppenderRef ref="Console"/>
         </Root>
     </Loggers>

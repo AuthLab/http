@@ -22,32 +22,30 @@
  * SOFTWARE.
  */
 
-package org.authlab.http.server
+package org.authlab.util
 
-import kotlin.reflect.KClass
+import java.util.TreeMap
 
-interface Context {
-    val data: Map<String, Any>
+interface CaseInsensitiveMap<E> : Map<String, E> {
+    fun toMutableMap(): MutableCaseInsensitiveMap<E>
+            = MutableCaseInsensitiveMap(this)
+}
 
-    fun <T:Any> get(key: String, type: KClass<out T>): T? {
-        return type.javaObjectType.cast(data[key])
+class MutableCaseInsensitiveMap<E>() : TreeMap<String, E>(String.CASE_INSENSITIVE_ORDER),
+        CaseInsensitiveMap<E> {
+    constructor(other: Map<String, E>) : this() {
+        putAll(other)
     }
 }
 
-inline fun <reified T:Any> Context.get(key: String): T? {
-    return get(key, T::class)
-}
+fun <E> caseInsensitiveMapOf(): CaseInsensitiveMap<E>
+        = MutableCaseInsensitiveMap()
 
-class MutableContext(data: Map<String, Any> = mapOf()) : Context {
-    override val data: MutableMap<String, Any> = data.toMutableMap()
+fun <E> caseInsensitiveMapOf(vararg pairs: Pair<String, E>): CaseInsensitiveMap<E>
+        = MutableCaseInsensitiveMap<E>().apply { putAll(pairs) }
 
-    companion object {
-        fun mutableCopyOf(other: Context): MutableContext {
-            return MutableContext(other.data)
-        }
-    }
+fun <E> mutableCaseInsensitiveMapOf(): MutableCaseInsensitiveMap<E>
+        = MutableCaseInsensitiveMap()
 
-    fun set(key: String, data: Any) {
-        this.data[key] = data
-    }
-}
+fun <E> mutableCaseInsensitiveMapOf(vararg pairs: Pair<String, E>): MutableCaseInsensitiveMap<E>
+        = MutableCaseInsensitiveMap<E>().apply { putAll(pairs) }

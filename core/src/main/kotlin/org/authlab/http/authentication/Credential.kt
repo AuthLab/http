@@ -22,32 +22,12 @@
  * SOFTWARE.
  */
 
-package org.authlab.http.server
+package org.authlab.http.authentication
 
-import kotlin.reflect.KClass
-
-interface Context {
-    val data: Map<String, Any>
-
-    fun <T:Any> get(key: String, type: KClass<out T>): T? {
-        return type.javaObjectType.cast(data[key])
-    }
-}
-
-inline fun <reified T:Any> Context.get(key: String): T? {
-    return get(key, T::class)
-}
-
-class MutableContext(data: Map<String, Any> = mapOf()) : Context {
-    override val data: MutableMap<String, Any> = data.toMutableMap()
-
+class Credential(val subject: Subject, val password: Password) {
     companion object {
-        fun mutableCopyOf(other: Context): MutableContext {
-            return MutableContext(other.data)
+        fun of(username: String, password: String): Credential {
+            return Credential(Subject(username), Password(password))
         }
-    }
-
-    fun set(key: String, data: Any) {
-        this.data[key] = data
     }
 }

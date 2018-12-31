@@ -24,27 +24,72 @@
 
 package org.authlab.http.server
 
-typealias FilterCallback = (ServerRequest<*>, MutableContext) -> ServerResponse?
+interface Filter {
+    /**
+     * Throws [FilterException] if handling should be aborted.
+     */
+    fun onRequest(request: ServerRequest<*>, context: MutableContext)
 
-class Filter(entryPoint: String, val onRequest: FilterCallback) : EntryPoint(entryPoint)
+    fun abort(init: ServerResponseBuilder.() -> Unit) {
+        throw FilterException(ServerResponseBuilder(init).build())
+    }
+}
 
-@ServerMarker
-class FilterBuilder private constructor() {
-    var entryPoint: String = "/*"
+interface FilterBuilder {
+    fun build(): Filter
+}
 
-    private var _onRequest: FilterCallback? = null
+class FilterException(val response: ServerResponse) : Exception()
 
-    constructor(init: FilterBuilder.() -> Unit) : this() {
+typealias FilterCallback = (ServerRequest<*>, MutableContext, abort: (ServerResponseBuilder.() -> Unit) -> Unit) -> Unit
+
+class CallbackFilter(private val callback: FilterCallback) : Filter {
+    override fun onRequest(request: ServerRequest<*>, context: MutableContext) {
+        callback(request, context) { responseBuilderInit ->
+            throw FilterException(ServerResponseBuilder(responseBuilderInit).build())
+        }
+    }
+}
+
+class CallbackFilterBuilder private constructor() : FilterBuilder {
+    var callback: FilterCallback? = null
+
+    constructor(init: CallbackFilterBuilder.() -> Unit) : this() {
         init()
     }
 
     fun onRequest(callback: FilterCallback) {
-        _onRequest = callback
+        this.callback = callback
     }
 
-    fun build(): Filter {
-        val onRequest = _onRequest ?: throw IllegalStateException("onRequest not defined on Filter")
+    override fun build(): Filter {
+        val callback = this.callback ?: throw IllegalStateException("Callback not defined on CallbackFilterBuilder")
 
-        return Filter(entryPoint, onRequest)
+        return CallbackFilter(callback)
+    }
+}
+
+class FilterHolder(entryPoint: String, val filter: Filter) : EntryPoint(entryPoint)
+
+@ServerMarker
+class FilterHolderBuilder private constructor() {
+    var entryPoint: String = "/*"
+    var filter: Filter? = null
+    var filterBuilder: FilterBuilder? = null
+
+    constructor(init: FilterHolderBuilder.() -> Unit) : this() {
+        init()
+    }
+
+    fun onRequest(callback: FilterCallback) {
+        filterBuilder = CallbackFilterBuilder {
+            this.callback = callback
+        }
+    }
+
+    fun build(): FilterHolder {
+        val filter = this.filter ?: filterBuilder?.build() ?: throw IllegalStateException("Filter or FilterBuilder not defined for FilterHolder")
+
+        return FilterHolder(entryPoint, filter)
     }
 }

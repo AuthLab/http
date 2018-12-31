@@ -22,32 +22,30 @@
  * SOFTWARE.
  */
 
-package org.authlab.http.server
+package org.authlab.http.authentication
 
-import kotlin.reflect.KClass
+import org.authlab.http.Header
+import org.authlab.http.Headers
 
-interface Context {
-    val data: Map<String, Any>
+abstract class AuthenticationResponse(val scheme: String) {
+    abstract val value: String
 
-    fun <T:Any> get(key: String, type: KClass<out T>): T? {
-        return type.javaObjectType.cast(data[key])
-    }
+    fun toRequestHeader(): Header
+            = Header("Authorization", toString())
+
+    override fun toString(): String
+            = "$scheme $value"
 }
 
-inline fun <reified T:Any> Context.get(key: String): T? {
-    return get(key, T::class)
-}
-
-class MutableContext(data: Map<String, Any> = mapOf()) : Context {
-    override val data: MutableMap<String, Any> = data.toMutableMap()
-
+class GenericAuthenticationResponse(scheme: String, override val value: String) : AuthenticationResponse(scheme) {
     companion object {
-        fun mutableCopyOf(other: Context): MutableContext {
-            return MutableContext(other.data)
+        fun fromString(input: String): GenericAuthenticationResponse {
+            val splitInput = input.split("\\s+".toRegex(), limit = 2)
+            return GenericAuthenticationResponse(splitInput.first(), splitInput.last())
         }
-    }
 
-    fun set(key: String, data: Any) {
-        this.data[key] = data
+        fun fromRequestHeaders(headers: Headers): List<GenericAuthenticationResponse> {
+            return headers.getHeader("Authorization")?.values?.map { fromString(it) } ?: emptyList()
+        }
     }
 }
