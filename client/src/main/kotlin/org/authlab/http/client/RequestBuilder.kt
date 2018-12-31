@@ -24,7 +24,10 @@
 
 package org.authlab.http.client
 
+import org.authlab.http.Header
 import org.authlab.http.Headers
+import org.authlab.http.authentication.BasicAuthenticationResponse
+import org.authlab.http.authentication.Credential
 import org.authlab.http.bodies.BodyWriter
 
 @ClientMarker
@@ -51,10 +54,16 @@ interface RequestBuilder {
         header(init())
     }
 
+    fun header(header: Header): RequestBuilder
+
     fun headers(headers: Headers): RequestBuilder
 
     fun headers(init: () -> Headers) {
         headers(init())
+    }
+
+    fun basicAuthorization(credential: Credential) {
+        header(BasicAuthenticationResponse(credential).toRequestHeader())
     }
 
     fun build(): ClientRequest

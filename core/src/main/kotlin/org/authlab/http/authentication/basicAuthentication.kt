@@ -65,8 +65,14 @@ class BasicAuthenticationResponse(val credential: Credential) : AuthenticationRe
                     .split(":", limit = 2)
             return Credential.of(usernameAndPassword.first(), usernameAndPassword.last())
         }
+
+        fun credentialToEncodedValue(credential: Credential): String {
+            return Base64.getEncoder()
+                    .encodeToString("${credential.subject.username}:${credential.password.plaintext}"
+                            .toByteArray(StandardCharsets.ISO_8859_1))
+        }
     }
 
     override val value: String
-        get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
+        get() = credentialToEncodedValue(credential)
 }

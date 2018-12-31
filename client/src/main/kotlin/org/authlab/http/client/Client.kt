@@ -26,6 +26,7 @@ package org.authlab.http.client
 
 import org.authlab.http.Authority
 import org.authlab.http.Endpoint
+import org.authlab.http.Header
 import org.authlab.http.Headers
 import org.authlab.http.Location
 import org.authlab.http.QueryParameters
@@ -309,6 +310,11 @@ class Client(val location: Location,
 
         override fun header(name: String, value: String): RequestBuilder {
             this.headers = headers.withHeader(name, value)
+            return this
+        }
+
+        override fun header(header: Header): RequestBuilder {
+            this.headers = headers.withHeader(header)
             return this
         }
 

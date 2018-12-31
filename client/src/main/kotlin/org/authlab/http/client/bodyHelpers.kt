@@ -30,6 +30,7 @@ import org.authlab.http.ParametersBuilder
 import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.DelayedBody
+import org.authlab.http.bodies.EmptyBodyReader
 import org.authlab.http.bodies.FormBodyWriter
 import org.authlab.http.bodies.JsonBodyReader
 import org.authlab.http.bodies.JsonBodyWriter
@@ -52,6 +53,10 @@ fun <B : Body> convertBody(body: Body, bodyReader: BodyReader<B>): B {
 
 fun ClientResponse<*>.asText(): String {
     return getBody(TextBodyReader()).text
+}
+
+fun ClientResponse<*>.ignoreBody() {
+    getBody(EmptyBodyReader())
 }
 
 inline fun <reified T> ClientResponse<*>.asJson(): T {

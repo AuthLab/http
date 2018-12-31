@@ -11,7 +11,7 @@ allprojects {
         kotlin_version = '1.2.41'
         groovy_version = '2.3.11'
         junit_version = '4.12'
-        kotlin_test_version = '3.1.0'
+        kotlin_test_version = '3.1.11'
         log4j_version = '2.10.0'
         spock_version = '1.1-groovy-2.3'
     }

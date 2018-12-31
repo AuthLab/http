@@ -25,14 +25,18 @@
 package org.authlab.http.server
 
 import io.kotlintest.shouldBe
+import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.crypto.setupDefaultSslContext
+import org.authlab.http.authentication.BasicAuthenticationResponse
+import org.authlab.http.authentication.Credential
 import org.authlab.http.bodies.DelayedBodyReader
 import org.authlab.http.bodies.FormBodyReader
 import org.authlab.http.bodies.TextBodyReader
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.client.buildClient
 import org.authlab.http.client.postForm
+import org.authlab.http.server.authorization.basicAuthorization
 import org.authlab.util.randomPort
 
 class ServerIntegrationSpec : StringSpec() {
@@ -195,6 +199,60 @@ class ServerIntegrationSpec : StringSpec() {
             }
         }
 
+        "A server can enforce the Basic authentication scheme" {
+            val serverPort = randomPort()
+
+            val server = buildServer {
+                listen {
+                    host = "localhost"
+                    port = serverPort
+                }
+
+                basicAuthorization("/foo") {
+                    credential("john", "doe")
+                }
+
+                handle("*") {
+                    status { 200 to "OK" }
+                    body { TextBodyWriter("bar") }
+                }
+            }.also { it.start() }
+
+            server.use {
+                buildClient("localhost:$serverPort")
+                        .use { client ->
+                            val response = client.get("/")
+                            response.responseLine.statusCode shouldBe 200
+                            response.getBody(TextBodyReader()).text shouldBe "bar"
+                        }
+
+                buildClient("localhost:$serverPort")
+                        .use { client ->
+                            val response = client.get("/foo")
+                            response.responseLine.statusCode shouldBe 401
+                            response.getBody(TextBodyReader()).text shouldNotBe "bar"
+                        }
+
+                buildClient("localhost:$serverPort")
+                        .use { client ->
+                            val response = client.get("/foo") {
+                                basicAuthorization(Credential.of("foo", "bar"))
+                            }
+                            response.responseLine.statusCode shouldBe 401
+                            response.getBody(TextBodyReader()).text shouldNotBe "bar"
+                        }
+
+                buildClient("localhost:$serverPort")
+                        .use { client ->
+                            val response = client.get("/foo") {
+                                basicAuthorization(Credential.of("john", "doe"))
+                            }
+                            response.responseLine.statusCode shouldBe 200
+                            response.getBody(TextBodyReader()).text shouldBe "bar"
+                        }
+            }
+        }
+
         "A server can be encrypted" {
             val serverPort = randomPort()
 
@@ -219,8 +277,6 @@ class ServerIntegrationSpec : StringSpec() {
                             response.responseLine.statusCode shouldBe 200
                             response.getBody(TextBodyReader()).text shouldBe "bar"
                         }
-
-
             }
         }
     }
