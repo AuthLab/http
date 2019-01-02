@@ -106,43 +106,41 @@ data class Location(val scheme: String? = null, val authority: Authority? = null
         }
     }
 
-    val host: Host?
-        get() {
-            return authority?.withoutAuthentication()
-        }
+    val host: Host? by lazy {
+        authority?.withoutAuthentication()
+    }
 
-    val endpoint: Endpoint
-        get() {
-            return if (authority == null) {
-                throw IllegalStateException("Authority component required to create endpoint")
-            } else if (authority.port != null) {
-                Endpoint(authority.hostname, authority.port)
-            } else {
-                when (scheme) {
-                    "http" -> Endpoint(authority.hostname, 80)
-                    "https" -> Endpoint(authority.hostname, 443)
-                    else -> throw IllegalStateException("No scheme to infer endpoint port from")
-                }
+    val endpoint: Endpoint by lazy {
+        when {
+            authority == null -> throw IllegalStateException("Authority component required to create endpoint")
+            authority.port != null -> Endpoint(authority.hostname, authority.port)
+            else -> when (scheme) {
+                "http" -> Endpoint(authority.hostname, 80)
+                "https" -> Endpoint(authority.hostname, 443)
+                else -> throw IllegalStateException("No scheme to infer endpoint port from")
             }
         }
+    }
 
-    val normalizedPathComponents: List<String>
-        get() = pathComponents.filter { it.isNotEmpty() }
+    val normalizedPathComponents: List<String> by lazy {
+        pathComponents.filter { it.isNotEmpty() }
+    }
 
-    val path: String?
-        get() = when {
+    val path: String? by lazy {
+        when {
             pathComponents.isNotEmpty() -> pathComponents.joinToString("/")
             else -> null
         }
+    }
 
-    val normalizedPath: String
-        get() = when {
+    val normalizedPath: String by lazy {
+        when {
             normalizedPathComponents.isNotEmpty() -> normalizedPathComponents.joinToString("/", "/")
             else -> "/"
         }
+    }
 
-    val safePath: String
-        get() = path ?: "/"
+    val safePath: String by lazy { path ?: "/" }
 
     fun withScheme(scheme: String) = Location(scheme, authority, pathComponents, query, fragment, asterisk)
 

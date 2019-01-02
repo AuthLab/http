@@ -57,6 +57,7 @@ class LocationSpec : StringSpec() {
 
                 location.scheme shouldBe scheme
                 location.authority?.hostname shouldBe host
+                location.host?.hostname shouldBe host
                 location.authority?.port shouldBe port
                 location.authority?.authentication?.username shouldBe username
                 location.authority?.authentication?.password shouldBe password
