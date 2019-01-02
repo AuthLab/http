@@ -37,7 +37,7 @@ package org.authlab.http
  * ':' and '@' may appear unencoded within the path, query, and fragment; and '?' and '/' may appear unencoded as data within the query or fragment.
  */
 data class Location(val scheme: String? = null, val authority: Authority? = null,
-                    val path: String? = null, val query: QueryParameters = QueryParameters(),
+                    val pathComponents: List<String> = emptyList(), val query: QueryParameters = QueryParameters(),
                     val fragment: String? = null, val asterisk: Boolean = false) {
     companion object {
         fun fromString(input: String): Location {
@@ -83,18 +83,26 @@ data class Location(val scheme: String? = null, val authority: Authority? = null
 
             // 4. Split on path
             val pathSplitIndex = remainder.indexOf("/")
-            val path: String?
+            val path: List<String>
 
             if (pathSplitIndex == -1) {
-                path = null
+                path = emptyList()
             } else {
-                path = remainder.substring(pathSplitIndex)
+                path = stringToPathComponents(remainder.substring(pathSplitIndex))
                 remainder = remainder.substring(0, pathSplitIndex)
             }
 
             val authority = Authority.fromString(remainder)
 
             return Location(scheme, authority, path, QueryParameters.fromString(query), fragment)
+        }
+
+        private fun stringToPathComponents(path: String?): List<String> {
+            if (path == null) {
+                return emptyList()
+            }
+
+            return path.split("/").toList()
         }
     }
 
@@ -118,28 +126,45 @@ data class Location(val scheme: String? = null, val authority: Authority? = null
             }
         }
 
-    val safePath
+    val path: String?
+        get() = when {
+            pathComponents.isNotEmpty() -> pathComponents.joinToString("/")
+            else -> null
+        }
+
+    val safePath: String
         get() = path ?: "/"
 
-    fun withScheme(scheme: String) = Location(scheme, authority, path, query, fragment, asterisk)
+    val normalizedPathComponents: List<String>
+        get() = pathComponents.filter { it.isNotEmpty() }
 
-    fun withoutScheme() = Location(null, authority, path, query, fragment, asterisk)
+    val normalizedPath: String?
+        get() = when {
+            normalizedPathComponents.isNotEmpty() -> normalizedPathComponents.joinToString("/", "/")
+            else -> "/"
+        }
 
-    fun withAuthority(authority: Authority) = Location(scheme, authority, path, query, fragment, asterisk)
+    fun withScheme(scheme: String) = Location(scheme, authority, pathComponents, query, fragment, asterisk)
 
-    fun withoutAuthority() = Location(scheme, null, path, query, fragment, asterisk)
+    fun withoutScheme() = Location(null, authority, pathComponents, query, fragment, asterisk)
 
-    fun withHost(host: Host) = Location(scheme, Authority(host.hostname, host.port), path, query, fragment, asterisk)
+    fun withAuthority(authority: Authority) = Location(scheme, authority, pathComponents, query, fragment, asterisk)
 
-    fun withPath(path: String) = Location(scheme, authority, path, query, fragment, asterisk)
+    fun withoutAuthority() = Location(scheme, null, pathComponents, query, fragment, asterisk)
 
-    fun withoutPath() = Location(scheme, authority, null, query, fragment, asterisk)
+    fun withHost(host: Host) = Location(scheme, Authority(host.hostname, host.port), pathComponents, query, fragment, asterisk)
 
-    fun withQuery(query: QueryParameters) = Location(scheme, authority, path, query, fragment, asterisk)
+    fun withPath(path: String) = Location(scheme, authority, stringToPathComponents(path), query, fragment, asterisk)
 
-    fun withFragment(fragment: String) = Location(scheme, authority, path, query, fragment, asterisk)
+    fun withSuffixedPath(path: String) = Location(scheme, authority, pathComponents + stringToPathComponents(path), query, fragment, asterisk)
 
-    fun withoutFragment() = Location(scheme, authority, path, query, null, asterisk)
+    fun withoutPath() = Location(scheme, authority, emptyList(), query, fragment, asterisk)
+
+    fun withQuery(query: QueryParameters) = Location(scheme, authority, pathComponents, query, fragment, asterisk)
+
+    fun withFragment(fragment: String) = Location(scheme, authority, pathComponents, query, fragment, asterisk)
+
+    fun withoutFragment() = Location(scheme, authority, pathComponents, query, null, asterisk)
 
     override fun toString(): String {
         if (asterisk) {

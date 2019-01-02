@@ -28,12 +28,12 @@ import io.kotlintest.shouldBe
 import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.StringSpec
 import org.authlab.crypto.setupDefaultSslContext
-import org.authlab.http.authentication.BasicAuthenticationResponse
 import org.authlab.http.authentication.Credential
 import org.authlab.http.bodies.DelayedBodyReader
 import org.authlab.http.bodies.FormBodyReader
 import org.authlab.http.bodies.TextBodyReader
 import org.authlab.http.bodies.TextBodyWriter
+import org.authlab.http.client.basicAuthentication
 import org.authlab.http.client.buildClient
 import org.authlab.http.client.postForm
 import org.authlab.http.server.authorization.basicAuthorization
@@ -236,7 +236,7 @@ class ServerIntegrationSpec : StringSpec() {
                 buildClient("localhost:$serverPort")
                         .use { client ->
                             val response = client.get("/foo") {
-                                basicAuthorization(Credential.of("foo", "bar"))
+                                basicAuthentication(Credential.of("foo", "bar"))
                             }
                             response.responseLine.statusCode shouldBe 401
                             response.getBody(TextBodyReader()).text shouldNotBe "bar"
@@ -245,7 +245,7 @@ class ServerIntegrationSpec : StringSpec() {
                 buildClient("localhost:$serverPort")
                         .use { client ->
                             val response = client.get("/foo") {
-                                basicAuthorization(Credential.of("john", "doe"))
+                                basicAuthentication(Credential.of("john", "doe"))
                             }
                             response.responseLine.statusCode shouldBe 200
                             response.getBody(TextBodyReader()).text shouldBe "bar"

@@ -2,6 +2,7 @@ rootProject.name = 'AuthLab HTTP'
 
 include 'core'
 include 'client'
+include 'oauth_client'
 include 'server'
 include 'proxy'
 include 'echo_server'

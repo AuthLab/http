@@ -1,8 +1,8 @@
 /*
  * MIT License
  *
- * Copyright (c) 2018 Johan Fylling
- * 
+ * Copyright (c) 2019 Johan Fylling
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,21 +24,25 @@
 
 package org.authlab.http.authentication
 
-import java.lang.StringBuilder
+import org.authlab.util.CaseInsensitiveMap
+import org.authlab.util.caseInsensitiveMapOf
+import org.authlab.util.mutableCaseInsensitiveMapOf
 
-class Subject(val subject: String, val name: String? = null) {
-    val displayName: String
-            = name ?: subject
+open class BearerAuthenticationChallenge constructor(parameters: CaseInsensitiveMap<String> = caseInsensitiveMapOf()) :
+        AuthenticationChallenge("Bearer", parameters) {
+    class Builder private constructor() {
+        private val parameters = mutableCaseInsensitiveMapOf<String>()
 
-    override fun toString(): String {
-        val sb = StringBuilder()
-
-        sb.append(subject)
-
-        if (name != null) {
-            sb.append('[').append(name).append(']')
+        constructor(init: Builder.() ->Unit) :this() {
+            init()
         }
 
-        return sb.toString()
+        fun parameter(key: String, value: String) {
+            parameters[key] = value
+        }
+
+        fun build() : BearerAuthenticationChallenge {
+            return BearerAuthenticationChallenge(parameters)
+        }
     }
 }

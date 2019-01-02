@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2018 Johan Fylling
+ * Copyright (c) 2019 Johan Fylling
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,23 +22,13 @@
  * SOFTWARE.
  */
 
-package org.authlab.http.authentication
+package org.authlab.http.oauth.client
 
-import java.lang.StringBuilder
+import org.authlab.http.client.AuthenticationManager
+import org.authlab.http.client.RequestBuilder
 
-class Subject(val subject: String, val name: String? = null) {
-    val displayName: String
-            = name ?: subject
+class OauthAuthenticationManager() : AuthenticationManager {
+    override fun authenticate(requestBuilder: RequestBuilder) {
 
-    override fun toString(): String {
-        val sb = StringBuilder()
-
-        sb.append(subject)
-
-        if (name != null) {
-            sb.append('[').append(name).append(']')
-        }
-
-        return sb.toString()
     }
 }

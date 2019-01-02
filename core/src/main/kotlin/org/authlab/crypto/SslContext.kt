@@ -80,3 +80,9 @@ fun setupDefaultSslContext(caFilePath: String = "./ca.p12", password: String = "
                            defaultHostname: String = "localhost", storeGeneratedCertificates: Boolean = false) {
     SSLContext.setDefault(createSslContext(caFilePath, password, defaultHostname, storeGeneratedCertificates))
 }
+
+fun createTrustAllSslContext(): SSLContext {
+    val sslContext = SSLContext.getInstance("TLS")
+    sslContext.init(null, arrayOf(TrustAllTrustManager()), SecureRandom())
+    return sslContext
+}

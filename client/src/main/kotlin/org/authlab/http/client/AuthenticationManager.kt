@@ -1,8 +1,8 @@
 /*
  * MIT License
  *
- * Copyright (c) 2018 Johan Fylling
- *
+ * Copyright (c) 2019 Johan Fylling
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,52 +24,19 @@
 
 package org.authlab.http.client
 
-import org.authlab.http.Header
-import org.authlab.http.Headers
 import org.authlab.http.authentication.BasicAuthenticationResponse
 import org.authlab.http.authentication.Credential
-import org.authlab.http.bodies.BodyWriter
 
-@ClientMarker
-interface RequestBuilder {
-    var method: String
-    var path: String
-    var bodyWriter: BodyWriter
-    var contentType: String?
-    var accept: String?
+interface AuthenticationManager {
+    fun authenticate(requestBuilder: RequestBuilder)
+}
 
-    fun query(name: String, value: String? = null): RequestBuilder
-
-    fun query(param: Pair<String, String>): RequestBuilder {
-        query(param.first, param.second)
-        return this
+class BasicAuthenticationManager(val credential: Credential) : AuthenticationManager {
+    override fun authenticate(requestBuilder: RequestBuilder) {
+        requestBuilder.basicAuthentication(credential)
     }
+}
 
-    fun query(init: () -> Pair<String, String>) {
-        query(init())
-    }
-
-    fun header(name: String, value: String): RequestBuilder {
-        header(Header(name, value))
-        return this
-    }
-
-    fun header(header: Pair<String, String>): RequestBuilder {
-        header(header.first, header.second)
-        return this
-    }
-
-    fun header(init: () -> Pair<String, String>) {
-        header(init())
-    }
-
-    fun header(header: Header): RequestBuilder
-
-    fun headers(headers: Headers): RequestBuilder
-
-    fun headers(init: () -> Headers) {
-        headers(init())
-    }
-
-    fun build(): ClientRequest
+fun RequestBuilder.basicAuthentication(credential: Credential) {
+    header(BasicAuthenticationResponse(credential).toRequestHeader())
 }

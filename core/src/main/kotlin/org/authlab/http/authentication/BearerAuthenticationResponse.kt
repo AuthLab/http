@@ -1,8 +1,8 @@
 /*
  * MIT License
  *
- * Copyright (c) 2018 Johan Fylling
- * 
+ * Copyright (c) 2019 Johan Fylling
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,21 +24,19 @@
 
 package org.authlab.http.authentication
 
-import java.lang.StringBuilder
+import org.authlab.http.Headers
 
-class Subject(val subject: String, val name: String? = null) {
-    val displayName: String
-            = name ?: subject
-
-    override fun toString(): String {
-        val sb = StringBuilder()
-
-        sb.append(subject)
-
-        if (name != null) {
-            sb.append('[').append(name).append(']')
+open class BearerAuthenticationResponse(override val value: String) : AuthenticationResponse("Bearer") {
+    companion object {
+        fun fromAuthenticationResponse(authenticationResponse: AuthenticationResponse): BearerAuthenticationResponse {
+            return BearerAuthenticationResponse(authenticationResponse.value)
         }
 
-        return sb.toString()
+        fun fromRequestHeaders(headers: Headers): List<BearerAuthenticationResponse> {
+            return GenericAuthenticationResponse.fromRequestHeaders(headers).asSequence()
+                    .filter { "Bearer".equals(it.scheme, ignoreCase = true) }
+                    .map { fromAuthenticationResponse(it) }
+                    .toList()
+        }
     }
 }

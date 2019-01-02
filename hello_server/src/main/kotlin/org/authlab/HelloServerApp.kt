@@ -26,9 +26,13 @@
 
 package org.authlab
 
+import org.authlab.crypto.createTrustAllSslContext
+import org.authlab.http.authentication.Credential
 import org.authlab.http.bodies.TextBodyWriter
+import org.authlab.http.client.BasicAuthenticationManager
 import org.authlab.http.hello.HelloServerBuilder
-import org.authlab.http.server.authorization.basicAuthorization
+import org.authlab.http.server.authorization.oauthAuthorization
+import org.authlab.http.server.authorization.oauthAuthorizationContext
 import java.net.InetAddress
 
 fun main(args: Array<String>) {
@@ -101,8 +105,21 @@ fun main(args: Array<String>) {
             this.backlog = backlog
         }
 
-        basicAuthorization("/me") {
-            credential("foo", "bar")
+//        basicAuthorization("/me") {
+//            credential("foo", "bar")
+//        }
+
+        oauthAuthorizationContext {
+            introspection("https://localhost:8443/introspection") {
+                http {
+                    sslContext = createTrustAllSslContext()
+                    authenticationManager = BasicAuthenticationManager(Credential.of("client-one", "0ne!Secret"))
+                }
+            }
+        }
+
+        oauthAuthorization("/me") {
+            scope("read")
         }
 
         handle("/foo") {

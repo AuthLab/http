@@ -1,0 +1,21 @@
+group 'http'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'groovy'
+apply plugin: 'kotlin'
+
+test {
+    useJUnitPlatform()
+}
+
+dependencies {
+    compile project(':client')
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "$java_version"
+}
+
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "$java_version"
+}

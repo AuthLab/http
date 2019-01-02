@@ -10,6 +10,8 @@
       <module name="echo_server_test" target="1.8" />
       <module name="hello_server_main" target="1.8" />
       <module name="hello_server_test" target="1.8" />
+      <module name="oauth_client_main" target="1.8" />
+      <module name="oauth_client_test" target="1.8" />
       <module name="proxy_main" target="1.8" />
       <module name="proxy_test" target="1.8" />
       <module name="server_main" target="1.8" />

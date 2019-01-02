@@ -53,9 +53,10 @@ import javax.net.ssl.SSLSocket
 class Client(val location: Location,
              val keepAlive: Boolean,
              val reconnect: Boolean,
-             val cookieManager: CookieManager?,
              private val socketProvider: () -> Socket,
              private val sslContext: SSLContext,
+             val cookieManager: CookieManager?,
+             private val authenticationManager: AuthenticationManager?,
              val proxy: Endpoint? = null) : Closeable {
     companion object {
         private val _logger = loggerFor<Client>()
@@ -196,6 +197,11 @@ class Client(val location: Location,
             requestBuilder.headers(cookieManager.toRequestHeaders(location, Instant.now()))
         }
 
+        if (authenticationManager != null) {
+            _logger.debug("Applying authentication to request")
+            authenticationManager.authenticate(requestBuilder)
+        }
+
         return request(requestBuilder.build(), bodyReader)
     }
 
@@ -297,19 +303,8 @@ class Client(val location: Location,
                 }
             }
 
-        override fun query(param: Pair<String, String>)
-                = query(param.first, param.second)
-
         override fun query(name: String, value: String?): RequestBuilder {
             query = query.withParameter(name, value)
-            return this
-        }
-
-        override fun header(header: Pair<String, String>)
-                = header(header.first, header.second)
-
-        override fun header(name: String, value: String): RequestBuilder {
-            this.headers = headers.withHeader(name, value)
             return this
         }
 
@@ -324,7 +319,7 @@ class Client(val location: Location,
         }
 
         override fun build(): ClientRequest {
-            val location = client.location.withPath(this.path).withQuery(this.query)
+            val location = client.location.withSuffixedPath(this.path).withQuery(this.query)
 
             val host = location.host ?: throw IllegalStateException("Host information missing in location '${client.location}'")
 
@@ -369,6 +364,7 @@ class ClientBuilder(private val location: String) {
     var proxy: String? = null
     var socketFactory: SocketFactory? = null
     var sslContext: SSLContext = SSLContext.getDefault()
+    var authenticationManager: AuthenticationManager? = null
 
     constructor(host: String, init: ClientBuilder.() -> Unit = {}) : this(host) {
         init()
@@ -391,6 +387,7 @@ class ClientBuilder(private val location: String) {
             }
         }
 
-        return Client(location, keepAlive, reconnect, cookieManager, socketProvider, sslContext, proxy)
+        return Client(location, keepAlive, reconnect, socketProvider, sslContext,
+                cookieManager, authenticationManager, proxy)
     }
 }

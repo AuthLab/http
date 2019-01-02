@@ -51,7 +51,7 @@ class BasicAuthorizationFilter(val realm: String, val credentials: Map<String, C
 
         val incomingCredential = authenticationResponse.credential
 
-        val credential = credentials[incomingCredential.subject.username]
+        val credential = credentials[incomingCredential.subject.subject]
 
         if (credential == null) {
             logger.debug("Unknown subject '{}'", incomingCredential.subject)
@@ -94,7 +94,7 @@ class BasicAuthorizationFilterBuilder private constructor() : FilterBuilder {
     }
 
     fun credential(credential: Credential) {
-        credentials[credential.subject.username] = credential
+        credentials[credential.subject.subject] = credential
     }
 
     override fun build(): Filter {

@@ -111,7 +111,7 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
             sb.append("hello")
 
             request.context.get<Subject>("subject")?.also {
-                sb.append(" ").append(it.username)
+                sb.append(" ").append(it.displayName)
             }
 
             request.context.data["session"]?.also {

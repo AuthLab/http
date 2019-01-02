@@ -126,7 +126,15 @@ open class ParametersBuilder() {
     }
 
     fun parameter(init: () -> Pair<String, String?>) {
-        _parameters.add(init())
+        parameter(init())
+    }
+
+    fun parameter(name: String, value: String?) {
+        parameter(name to value)
+    }
+
+    fun parameter(pair: Pair<String, String?>) {
+        _parameters.add(pair)
     }
 }
 

@@ -68,7 +68,7 @@ class BasicAuthenticationResponse(val credential: Credential) : AuthenticationRe
 
         fun credentialToEncodedValue(credential: Credential): String {
             return Base64.getEncoder()
-                    .encodeToString("${credential.subject.username}:${credential.password.plaintext}"
+                    .encodeToString("${credential.subject.subject}:${credential.password.plaintext}"
                             .toByteArray(StandardCharsets.ISO_8859_1))
         }
     }

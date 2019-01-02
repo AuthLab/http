@@ -288,7 +288,12 @@ open class ServerBuilder constructor() {
 
     fun context(init: () -> Pair<String, Any>) {
         val pair = init()
-        _contextData[pair.first] = pair.second
+        context(pair.first, pair.second)
+    }
+
+    fun context(key: String, value: Any): ServerBuilder {
+        _contextData[key] = value
+        return this
     }
 
     fun listen(init: ServerListenerBuilder.() -> Unit) {
