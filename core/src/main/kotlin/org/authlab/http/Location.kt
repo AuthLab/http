@@ -126,23 +126,23 @@ data class Location(val scheme: String? = null, val authority: Authority? = null
             }
         }
 
+    val normalizedPathComponents: List<String>
+        get() = pathComponents.filter { it.isNotEmpty() }
+
     val path: String?
         get() = when {
             pathComponents.isNotEmpty() -> pathComponents.joinToString("/")
             else -> null
         }
 
-    val safePath: String
-        get() = path ?: "/"
-
-    val normalizedPathComponents: List<String>
-        get() = pathComponents.filter { it.isNotEmpty() }
-
-    val normalizedPath: String?
+    val normalizedPath: String
         get() = when {
             normalizedPathComponents.isNotEmpty() -> normalizedPathComponents.joinToString("/", "/")
             else -> "/"
         }
+
+    val safePath: String
+        get() = path ?: "/"
 
     fun withScheme(scheme: String) = Location(scheme, authority, pathComponents, query, fragment, asterisk)
 
