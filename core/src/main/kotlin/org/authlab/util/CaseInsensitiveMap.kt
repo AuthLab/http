@@ -49,3 +49,9 @@ fun <E> mutableCaseInsensitiveMapOf(): MutableCaseInsensitiveMap<E>
 
 fun <E> mutableCaseInsensitiveMapOf(vararg pairs: Pair<String, E>): MutableCaseInsensitiveMap<E>
         = MutableCaseInsensitiveMap<E>().apply { putAll(pairs) }
+
+fun <E> Map<String, E>.toCaseInsensitiveMap(): CaseInsensitiveMap<E>
+        = MutableCaseInsensitiveMap(this)
+
+fun <E> Map<String, E>.toMutableCaseInsensitiveMap(): MutableCaseInsensitiveMap<E>
+        = MutableCaseInsensitiveMap(this)

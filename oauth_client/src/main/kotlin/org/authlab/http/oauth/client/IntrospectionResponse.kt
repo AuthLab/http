@@ -1,9 +1,14 @@
 package org.authlab.http.oauth.client
 
 import org.authlab.http.authentication.Subject
+import java.time.Duration
 import java.time.Instant
 
-class IntrospectionResponse(val attributes: Map<String, Any>) {
+class IntrospectionResponse(val attributes: Map<String, Any>,
+                            val cacheControl: Instant? = null) {
+    constructor(active: Boolean)
+            : this(mapOf("active" to active))
+
     val active: Boolean
         get() = attributes["active"] as? Boolean ?: false
 
@@ -42,4 +47,7 @@ class IntrospectionResponse(val attributes: Map<String, Any>) {
 
     val jwtId: String?
         get() = attributes["jti"] as? String
+
+    val cacheExpiration: Instant
+        get() = cacheControl ?: expiration ?: Instant.MAX
 }

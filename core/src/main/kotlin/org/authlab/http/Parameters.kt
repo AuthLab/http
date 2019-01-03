@@ -70,15 +70,42 @@ abstract class Parameters<T : Parameters<T>>(protected val parameters: Map<Strin
         }
     }
 
-    override fun equals(other: Any?) =
-        other is Parameters<*> && parameters == other.parameters
+    override fun equals(other: Any?)
+            = other is Parameters<*> && parameters == other.parameters
 
-    override fun hashCode() =
-        parameters.hashCode()
+    override fun hashCode()
+            = parameters.hashCode()
+
+    fun toString(delimiter: String, encode: (String) -> String = { it }): String {
+        return parameters.values.joinToString(delimiter) { it.toString(delimiter, encode) }
+    }
 }
 
 class Parameter(val name: String, val values: List<String> = emptyList()) {
-    constructor(name: String, value: String) : this(name, listOf(value))
+    constructor(name: String, value: String?) : this(name, if (value != null) listOf(value) else emptyList())
+
+    companion object {
+        fun fromString(input: String?, delimiter: String, decode: (String) -> String = { it }): Map<String, Parameter> {
+            val parameters = mutableMapOf<String, Parameter>()
+
+            input?.split(delimiter)?.forEach { parameterString ->
+                val keyValuePair = parameterString.split("=", limit = 2)
+                        .map { decode(it) }
+
+                val (key, value) = when {
+                    keyValuePair.size == 1 -> keyValuePair[0] to null
+                    keyValuePair.size == 2 -> keyValuePair[0] to keyValuePair[1]
+                    else -> null to null
+                }
+
+                if (key != null) {
+                    parameters[key] = Parameter(key, value)
+                }
+            }
+
+            return parameters
+        }
+    }
 
     fun withValue(value: String): Parameter {
         val newValues = values.toMutableList()
@@ -98,6 +125,15 @@ class Parameter(val name: String, val values: List<String> = emptyList()) {
     fun firstOrNull(): String?
             = values.firstOrNull()
 
+    fun firstOrDefault(default: String): String?
+            = firstOrNull() ?: default
+
+    fun last(): String
+            = values.last()
+
+    fun lastOrNull(): String?
+            = values.lastOrNull()
+
     fun toHar(): List<*> {
         return if (values.isEmpty()) {
             listOf(mapOf("name" to name, "value" to ""))
@@ -115,6 +151,16 @@ class Parameter(val name: String, val values: List<String> = emptyList()) {
         var result = name.hashCode()
         result = 31 * result + values.hashCode()
         return result
+    }
+
+    fun toString(delimiter: String, encode: (String) -> String = { it }): String {
+        val encodedName = encode(name)
+
+        return if (values.isEmpty()) {
+            encodedName
+        } else {
+            values.joinToString(delimiter) { "$encodedName=${encode(it)}" }
+        }
     }
 }
 

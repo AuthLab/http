@@ -24,11 +24,13 @@
 
 package org.authlab.http.oauth.client
 
+import org.authlab.http.CacheControl
 import org.authlab.http.client.Client
 import org.authlab.http.client.ClientBuilder
 import org.authlab.http.client.asJson
 import org.authlab.http.client.postForm
 import org.authlab.util.loggerFor
+import java.time.Instant
 
 private val logger = loggerFor<IntrospectionClient>()
 
@@ -36,7 +38,7 @@ class IntrospectionClient(private val httpClient: Client) {
     fun introspectToken(token: String, tokenTypeHint: String? = null): IntrospectionResponse {
         logger.trace("Introspecting token: {}", token)
 
-        val attributes = httpClient.postForm({
+        val response = httpClient.postForm({
             parameter("token", token)
 
             if (tokenTypeHint != null) {
@@ -44,11 +46,23 @@ class IntrospectionClient(private val httpClient: Client) {
             }
         }) {
             accept = "application/json"
-        }.asJson<Map<String, Any>>()
+        }
+
+        val attributes = response.asJson<Map<String, Any>>()
 
         logger.trace("Introspection response: {}", attributes)
 
-        return IntrospectionResponse(attributes)
+        val cacheControlMaxAge = CacheControl.fromHeaders(response.headers).maxAge
+
+        var cacheExpiration: Instant? = null
+
+        if (cacheControlMaxAge != null) {
+            val now = response.headers["date"]?.getFirstAsInstant() ?: Instant.now()
+            cacheExpiration = now.plus(cacheControlMaxAge)
+            logger.trace("Setting cache expiration to {}", cacheExpiration)
+        }
+
+        return IntrospectionResponse(attributes, cacheExpiration)
     }
 
     class Builder(var location: String) {

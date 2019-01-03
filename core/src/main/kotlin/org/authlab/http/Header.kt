@@ -24,6 +24,9 @@
 
 package org.authlab.http
 
+import java.time.Instant
+import java.time.format.DateTimeFormatter
+
 data class Header(val name: String, val values: List<String> = emptyList()) {
     companion object Factory {
         fun fromString(input: String): Header {
@@ -53,7 +56,13 @@ data class Header(val name: String, val values: List<String> = emptyList()) {
 
     fun getFirst() = values.first()
 
-    fun getFirstAsInt() = Integer.parseInt(values.first())
+    fun getFirstOrNull() = values.firstOrNull()
+
+    fun getFirstAsInt() = getFirst().toInt()
+
+    fun getFirstAsLong() = getFirst().toLong()
+
+    fun getFirstAsInstant() = Instant.from(DateTimeFormatter.RFC_1123_DATE_TIME.parse(getFirst()))
 
     fun toLines() = values.map { value -> "$name: $value" }
 

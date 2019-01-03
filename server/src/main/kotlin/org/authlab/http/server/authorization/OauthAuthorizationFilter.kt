@@ -28,6 +28,8 @@ import org.authlab.http.authentication.BearerAuthenticationResponse
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.oauth.OauthAuthenticationChallenge
 import org.authlab.http.oauth.client.IntrospectionClient
+import org.authlab.http.oauth.client.IntrospectionResponse
+import org.authlab.http.server.Context
 import org.authlab.http.server.Filter
 import org.authlab.http.server.FilterBuilder
 import org.authlab.http.server.FilterException
@@ -46,6 +48,8 @@ private val logger = loggerFor<OauthAuthorizationFilter>()
 class OauthAuthorizationFilter(val scopes: Set<String> = emptySet(),
                                val audience: String?,
                                val introspectionClient: IntrospectionClient?) : Filter {
+    private val cache: MutableMap<String, IntrospectionResponse> = mutableMapOf()
+
     override fun onRequest(request: ServerRequest<*>, context: MutableContext) {
         val authenticationResponse = BearerAuthenticationResponse.fromRequestHeaders(request.headers)
                 .firstOrNull()
@@ -61,76 +65,114 @@ class OauthAuthorizationFilter(val scopes: Set<String> = emptySet(),
 
         context.set("access_token", accessToken)
 
-        val currentIntrospectionClient: IntrospectionClient? = introspectionClient
-                ?: context.get("oauth_filter_introspection_client")
+        val introspectionResponse = introspect(accessToken, context)
 
-        if (currentIntrospectionClient != null) {
-            logger.trace("Introspecting token: '{}'", accessToken)
+        if (!introspectionResponse.active) {
+            logger.info("Access token is not active")
+            throw abort()
+        }
 
-            val introspectionResponse = try {
-                currentIntrospectionClient.introspectToken(accessToken)
-            } catch (e: Exception) {
-                logger.info("Token introspection request failed: {}", e.message)
+        val now = Instant.now()
+
+        introspectionResponse.tokenType?.let { tokenType ->
+            if (!"Bearer".equals(tokenType, ignoreCase = true)) {
+                logger.info("Access token is not a Bearer token ({})",
+                        tokenType)
                 throw abort()
             }
+        }
 
-            if (!introspectionResponse.active) {
-                logger.info("Access token is not active")
+        introspectionResponse.issuedAt?.let { issuedAt ->
+            if (now.isBefore(issuedAt)) {
+                logger.info("Access token must not be used before it was issued {} (now is {})",
+                        issuedAt, now)
                 throw abort()
+            }
+        }
+
+        introspectionResponse.notBefore?.let { notBefore ->
+            if (now.isBefore(notBefore)) {
+                logger.info("Access token must not be used before {} (now is {})",
+                        notBefore, now)
+                throw abort()
+            }
+        }
+
+        introspectionResponse.expiration?.let { expiration ->
+            if (now.isAfter(expiration)) {
+                logger.info("Access token expires at {} (now is {})",
+                        expiration, now)
+                throw abort()
+            }
+        }
+
+        if (audience != null && introspectionResponse.audience != audience) {
+            logger.info("Access token audience '{}' wasn't the expected '{}'",
+                    introspectionResponse.audience, audience)
+            throw abort()
+        }
+
+        if (!introspectionResponse.scopes.containsAll(scopes)) {
+            logger.info("Access token scope '{}' doesn't satisfy scope '{}'",
+                    introspectionResponse.scope, scopes)
+            throw abort()
+        }
+
+        val subject = introspectionResponse.subject
+
+        if (subject != null) {
+            logger.info("Subject {} authenticated through Bearer access token",
+                    subject)
+            context.set("subject", subject)
+        }
+    }
+
+    private fun introspect(accessToken: String, context: Context): IntrospectionResponse {
+        val cachedIntrospectionResponse = cache[accessToken]
+
+        if (cachedIntrospectionResponse != null) {
+            logger.debug("Found cached introspection response for access token")
+
+            if (!cachedIntrospectionResponse.active) {
+                return cachedIntrospectionResponse
             }
 
             val now = Instant.now()
 
-            introspectionResponse.tokenType?.let { tokenType ->
-                if (!"Bearer".equals(tokenType, ignoreCase = true)) {
-                    logger.info("Access token is not a Bearer token ({})",
-                            tokenType)
-                    throw abort()
-                }
-            }
-
-            introspectionResponse.issuedAt?.let { issuedAt ->
-                if (now.isBefore(issuedAt)) {
-                    logger.info("Access token must not be used before it was issued {} (now is {})",
-                            issuedAt, now)
-                    throw abort()
-                }
-            }
-
-            introspectionResponse.notBefore?.let { notBefore ->
-                if (now.isBefore(notBefore)) {
-                    logger.info("Access token must not be used before {} (now is {})",
-                            notBefore, now)
-                    throw abort()
-                }
-            }
-
-            introspectionResponse.expiration?.let { expiration ->
+            cachedIntrospectionResponse.expiration?.let { expiration ->
                 if (now.isAfter(expiration)) {
-                    logger.info("Access token expires at {} (now is {})",
+                    logger.debug("Cached introspection response access token expired at {} (now is {})",
                             expiration, now)
-                    throw abort()
+                    val inactiveIntrospectionResponse = IntrospectionResponse(false)
+                    cache[accessToken] = inactiveIntrospectionResponse
+                    return inactiveIntrospectionResponse
                 }
             }
 
-            if (audience != null && introspectionResponse.audience != audience) {
-                logger.info("Access token audience '{}' wasn't the expected '{}'",
-                        introspectionResponse.audience, audience)
-                throw abort()
+            if (now.isAfter(cachedIntrospectionResponse.cacheExpiration)) {
+                logger.debug("Introspection response cache period expired at {} (now is {}); dropping it from cache",
+                        cachedIntrospectionResponse.cacheExpiration, now)
+                cache.remove(accessToken)
+            } else {
+                return cachedIntrospectionResponse
             }
+        }
 
-            if (!introspectionResponse.scopes.containsAll(scopes)) {
-                logger.info("Access token scope '{}' doesn't satisfy scope '{}'",
-                        introspectionResponse.scope, scopes)
-                throw abort()
-            }
+        val currentIntrospectionClient: IntrospectionClient? = introspectionClient
+                ?: context.get("oauth_filter_introspection_client")
 
-            val subject = introspectionResponse.subject
+        if (currentIntrospectionClient == null) {
+            return IntrospectionResponse(false)
+        }
 
-            if (subject != null) {
-                logger.info("Subject {} authenticated through Bearer access token")
-                context.set("subject", subject)
-            }
+        logger.trace("Introspecting token: '{}'", accessToken)
+
+        return try {
+            currentIntrospectionClient.introspectToken(accessToken)
+                    .also { cache[accessToken] = it }
+        } catch (e: Exception) {
+            logger.info("Token introspection request failed: {}", e.message)
+            throw abort()
         }
     }
 

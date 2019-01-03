@@ -8,6 +8,7 @@
 
     <Loggers>
         <Logger name="org.authlab.http.oauth" level="TRACE"/>
+        <Logger name="org.authlab.http.server.authorization" level="TRACE"/>
 
         <Root level="INFO">
             <AppenderRef ref="Console"/>
