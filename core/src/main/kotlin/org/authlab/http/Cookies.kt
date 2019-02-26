@@ -96,6 +96,7 @@ class Cookies private constructor (private val cookies: Map<String, Cookie> = ma
     }
 
     fun toRequestHeaders(): Headers {
+        // TODO: Only return one header containing all cookies; RFC-6265 section-5.4
         return Headers(cookies.values.map {
             it.toRequestHeader()
         })

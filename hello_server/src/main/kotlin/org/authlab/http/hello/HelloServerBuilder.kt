@@ -31,6 +31,7 @@ import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.server.ServerBuilder
 import org.authlab.http.server.ServerMarker
 import org.authlab.http.server.ServerResponseBuilder
+import org.authlab.http.server.filter
 import org.authlab.http.server.get
 import org.authlab.util.loggerFor
 import org.slf4j.MDC
@@ -71,12 +72,10 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
             }
         }
 
-        filter("/reject") {
-            onRequest { _, _, abort ->
-                abort {
-                    status(400 to "Bad Request")
-                    body(TextBodyWriter("rejected"))
-                }
+        filter("/reject") { _, _, abort ->
+            abort {
+                status(400 to "Bad Request")
+                body(TextBodyWriter("rejected"))
             }
         }
 

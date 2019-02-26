@@ -300,10 +300,6 @@ open class ServerBuilder constructor() {
         _listenerBuilders.add(ServerListenerBuilder(init))
     }
 
-    fun filter(entryPoint: String, init: CallbackFilterBuilder.() -> Unit) {
-        filter(entryPoint, CallbackFilterBuilder(init))
-    }
-
     fun filter(entryPoint: String, filterBuilder: FilterBuilder) {
         _filterBuilders.add(FilterHolderBuilder {
             this.entryPoint = entryPoint

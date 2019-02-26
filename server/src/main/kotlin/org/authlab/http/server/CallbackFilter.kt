@@ -1,8 +1,8 @@
 /*
  * MIT License
  *
- * Copyright (c) 2018 Johan Fylling
- * 
+ * Copyright (c) 2019 Johan Fylling
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,19 +24,36 @@
 
 package org.authlab.http.server
 
-interface Filter {
-    /**
-     * Throws [FilterException] if handling should be aborted.
-     */
-    fun onRequest(request: ServerRequest<*>, context: MutableContext)
+typealias FilterCallback = (request: ServerRequest<*>, context: MutableContext, abort: (ServerResponseBuilder.() -> Unit) -> Unit) -> Unit
 
-    fun abort(init: ServerResponseBuilder.() -> Unit) {
-        throw FilterException(ServerResponseBuilder(init).build())
+class CallbackFilter(private val callback: FilterCallback) : Filter {
+    override fun onRequest(request: ServerRequest<*>, context: MutableContext) {
+        callback(request, context) { responseBuilderInit ->
+            throw FilterException(ServerResponseBuilder(responseBuilderInit).build())
+        }
     }
 }
 
-interface FilterBuilder {
-    fun build(): Filter
+class CallbackFilterBuilder private constructor() : FilterBuilder {
+    var callback: FilterCallback? = null
+
+    constructor(init: CallbackFilterBuilder.() -> Unit) : this() {
+        init()
+    }
+
+    fun onRequest(callback: FilterCallback) {
+        this.callback = callback
+    }
+
+    override fun build(): Filter {
+        val callback = this.callback ?: throw IllegalStateException("Callback not defined on CallbackFilterBuilder")
+
+        return CallbackFilter(callback)
+    }
 }
 
-class FilterException(val response: ServerResponse) : Exception()
+fun ServerBuilder.filter(entryPoint: String, callback: FilterCallback) {
+    filter(entryPoint, CallbackFilterBuilder {
+        onRequest(callback)
+    })
+}

@@ -47,9 +47,9 @@ class CookieManager(cookies: Cookies = Cookies()) {
     }
 
     fun addCookie(cookie: Cookie) {
-        cookiesByPath.compute(cookie.safePath, { _, cookies ->
+        cookiesByPath.compute(cookie.safePath) { _, cookies ->
             cookies?.withCookie(cookie) ?: Cookies(cookie)
-        })
+        }
     }
 
     fun removeExpiredCookies(now: Instant = Instant.now()) {
@@ -63,11 +63,11 @@ class CookieManager(cookies: Cookies = Cookies()) {
     }
 
     fun toRequestHeaders(location: Location): Headers {
-        return toRequestHeaders(location, { true })
+        return toRequestHeaders(location) { true }
     }
 
     fun toRequestHeaders(location: Location, now: Instant): Headers {
-        return toRequestHeaders(location, { cookie -> cookie.expires?.isAfter(now) ?: true })
+        return toRequestHeaders(location) { cookie -> cookie.expires?.isAfter(now) ?: true }
     }
 
     fun toRequestHeaders(location: Location, predicate: (Cookie) -> Boolean): Headers {
