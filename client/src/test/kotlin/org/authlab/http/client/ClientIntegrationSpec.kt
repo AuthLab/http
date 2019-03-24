@@ -184,12 +184,12 @@ class ClientIntegrationSpec : StringSpec() {
 
                         val headers = getHeaders(json)
 
-                        headers.find { it["name"] == "Content-Type" }!!["value"] shouldBe "text/plain"
+                        headers.find { it["name"] == "Content-Type" }!!["value"] shouldBe "text/plain; charset=utf-8"
                         headers.find { it["name"] == "Content-Length" }!!["value"] shouldBe "5"
 
                         val postData = getPostData(json)
 
-                        postData["mimeType"] shouldBe "text/plain"
+                        postData["mimeType"] shouldBe "text/plain; charset=utf-8"
                         postData["text"] shouldBe "hello"
                     }
         }

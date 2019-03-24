@@ -24,21 +24,25 @@
 
 package org.authlab.http
 
-class Headers private constructor (private val headers: Map<String, Header>) :
+import org.authlab.util.CaseInsensitiveMap
+import org.authlab.util.toCaseInsensitiveMap
+import org.authlab.util.toMutableCaseInsensitiveMap
+
+class Headers private constructor (private val headers: CaseInsensitiveMap<Header>) :
         Map<String, Header> by headers {
     constructor(header: Header) : this(listOf(header))
 
-    constructor(headers: List<Header> = emptyList()) : this(headers
-            .map { it.name.toUpperCase() to it }.toMap())
+    constructor(headers: List<Header> = emptyList()) :
+            this(headers.map { it.name.toUpperCase() to it }.toCaseInsensitiveMap())
 
     fun withHeader(name: String, value: String): Headers {
         return withHeader(Header(name, value))
     }
 
     fun withHeader(header: Header): Headers {
-        val mutableHeaders = headers.toMutableMap()
+        val mutableHeaders = headers.toMutableCaseInsensitiveMap()
 
-        mutableHeaders.merge(header.name.toUpperCase(), header) { originalHeader, incomingHeader ->
+        mutableHeaders.merge(header.name, header) { originalHeader, incomingHeader ->
             originalHeader.withValues(incomingHeader.values)
         }
 
@@ -56,9 +60,9 @@ class Headers private constructor (private val headers: Map<String, Header>) :
     }
 
     fun withoutHeaders(name: String): Headers {
-        val mutableHeaders = headers.toMutableMap()
+        val mutableHeaders = headers.toMutableCaseInsensitiveMap()
 
-        mutableHeaders.remove(name.toUpperCase())
+        mutableHeaders.remove(name)
 
         return Headers(mutableHeaders)
     }
@@ -67,7 +71,7 @@ class Headers private constructor (private val headers: Map<String, Header>) :
             = getHeader(key)
 
     fun getHeader(name: String): Header?
-            = headers[name.toUpperCase()]
+            = headers[name]
 
     fun hasHeader(name: String): Boolean
         = getHeader(name) != null
@@ -76,7 +80,7 @@ class Headers private constructor (private val headers: Map<String, Header>) :
             = withoutHeaders(header.name).withHeader(header)
 
     fun withReplacedHeaders(headers: Headers): Headers {
-        val mutableHeaders = this.headers.toMutableMap()
+        val mutableHeaders = this.headers.toMutableCaseInsensitiveMap()
 
         mutableHeaders.putAll(headers.headers)
 

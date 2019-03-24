@@ -38,6 +38,25 @@ class MutableCaseInsensitiveMap<E>() : TreeMap<String, E>(String.CASE_INSENSITIV
     }
 }
 
+private object EmptyCaseSensitiveMap : CaseInsensitiveMap<Nothing> {
+    override val entries: Set<Map.Entry<String, Nothing>> = emptySet()
+    override val keys: Set<String> = emptySet()
+    override val size: Int = 0
+    override val values: Collection<Nothing> = emptyList()
+
+    override fun containsKey(key: String): Boolean = false
+
+    override fun containsValue(value: Nothing): Boolean = false
+
+    override fun get(key: String): Nothing? = null
+
+    override fun isEmpty(): Boolean = true
+}
+
+@Suppress("UNCHECKED_CAST")
+fun <E> emptyCaseInsensitiveMap(): CaseInsensitiveMap<E>
+        = EmptyCaseSensitiveMap as CaseInsensitiveMap<E>
+
 fun <E> caseInsensitiveMapOf(): CaseInsensitiveMap<E>
         = MutableCaseInsensitiveMap()
 
@@ -55,3 +74,17 @@ fun <E> Map<String, E>.toCaseInsensitiveMap(): CaseInsensitiveMap<E>
 
 fun <E> Map<String, E>.toMutableCaseInsensitiveMap(): MutableCaseInsensitiveMap<E>
         = MutableCaseInsensitiveMap(this)
+
+fun <E, M : MutableCaseInsensitiveMap<in E>> Iterable<Pair<String, E>>.toCaseInsensitiveMap(destination: M): M
+        = destination.apply { putAll(this@toCaseInsensitiveMap) }
+
+fun <E> Iterable<Pair<String, E>>.toCaseInsensitiveMap(): CaseInsensitiveMap<E> {
+    if (this is Collection) {
+        return when (size) {
+            0 -> emptyCaseInsensitiveMap()
+            1 -> caseInsensitiveMapOf(if (this is List) this[0] else iterator().next())
+            else -> toCaseInsensitiveMap(MutableCaseInsensitiveMap())
+        }
+    }
+    return toMap().toCaseInsensitiveMap()
+}
