@@ -38,7 +38,7 @@ class ServerResponseBuilderSpec : StringSpec() {
             }.build()
 
             serverResponse.statusCode shouldBe 200
-            serverResponse.contentType shouldBe "text/plain"
+            serverResponse.contentType shouldBe "text/plain; charset=utf-8"
             serverResponse.contentLength shouldBe 15
 
             serverResponse.internalResponse.run {

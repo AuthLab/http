@@ -59,9 +59,11 @@ class ServerResponse internal constructor(internal val internalResponse: Respons
 
 @ServerMarker
 class ServerResponseBuilder() {
-    private var _statusLine: ResponseLine? = null
-    private var _headers = Headers()
+    private var _statusLine: ResponseLine = ResponseLine(200, "OK")
+    private var _headers: Headers = Headers()
     private var _bodyWriter: BodyWriter = EmptyBodyWriter()
+
+    var allowContentHeaderOverrides = false
 
     constructor(init: ServerResponseBuilder.() -> Unit) : this() {
         init()
@@ -116,29 +118,41 @@ class ServerResponseBuilder() {
     }
 
     fun build(): ServerResponse {
-        val statusLine = _statusLine ?: throw IllegalStateException("No statusLine on server response")
+        val statusLine = _statusLine
         val bodyWriter = _bodyWriter
 
-        _headers = _headers.withoutHeaders("Content-Length")
-                .withoutHeaders("Content-Type")
-                .withoutHeaders("Content-Encoding")
-                .withoutHeaders("Transfer-Encoding")
+        if (!allowContentHeaderOverrides) {
+            _headers = _headers.withoutHeaders("Content-Length")
+                    .withoutHeaders("Content-Type")
+                    .withoutHeaders("Content-Encoding")
+                    .withoutHeaders("Transfer-Encoding")
+        }
 
         if (bodyWriter !is EmptyBodyWriter) {
             bodyWriter.contentLength?.also {
-                _headers = _headers.withHeader("Content-Length", it.toString())
+                if (!_headers.contains("Content-Length")) {
+                    _headers = _headers.withHeader("Content-Length", it.toString())
+                } else {
+                    // TODO: Log that header was overridden by API user
+                }
             }
 
             bodyWriter.contentType?.also {
-                _headers = _headers.withHeader("Content-Type", it)
+                if (!_headers.contains("Content-Type")) {
+                    _headers = _headers.withHeader("Content-Type", it)
+                }
             }
 
             bodyWriter.contentEncoding?.also {
-                _headers = _headers.withHeader("Content-Encoding", it)
+                if (!_headers.contains("Content-Encoding")) {
+                    _headers = _headers.withHeader("Content-Encoding", it)
+                }
             }
 
             bodyWriter.transferEncoding?.also {
-                _headers = _headers.withHeader("Transfer-Encoding", it)
+                if (!_headers.contains("Transfer-Encoding")) {
+                    _headers = _headers.withHeader("Transfer-Encoding", it)
+                }
             }
         }
 

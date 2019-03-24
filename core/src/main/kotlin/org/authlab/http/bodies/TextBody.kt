@@ -40,5 +40,7 @@ open class TextBodyReader : AbstractTextBodyReader<TextBody>() {
             = TextBody(getTextValue())
 }
 
-open class TextBodyWriter(string: String, contentType: String = "text/plain", contentEncoding: String? = null) :
+open class TextBodyWriter(string: String,
+                          contentType: String = "text/plain; charset=utf-8",
+                          contentEncoding: String? = null) :
         ByteBodyWriter(string.toByteArray(StandardCharsets.UTF_8), contentType, contentEncoding)

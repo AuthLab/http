@@ -83,6 +83,9 @@ class Headers private constructor (private val headers: Map<String, Header>) :
         return Headers(mutableHeaders)
     }
 
+    fun contains(name: String): Boolean
+            = headers.containsKey(name.toUpperCase())
+
     fun toLines() = headers.values.flatMap { header -> header.toLines() }
 
     fun toHar(): List<*> {
