@@ -147,24 +147,21 @@ class ServerIntegrationSpec : StringSpec() {
                     port = serverPort
                 }
 
-                handle("/text") { request ->
+                handle("/text", TextBodyReader()) { request ->
                     val body = request.getBody()
 
-                    status { 200 to "OK" }
                     body { TextBodyWriter(body.text.toUpperCase()) }
                 }
 
                 handle("/form", FormBodyReader()) { request ->
                     val body = request.getBody()
 
-                    status { 200 to "OK" }
                     body { TextBodyWriter(body["foo"].toString()) }
                 }
 
                 handle("/delayed", DelayedBodyReader()) { request ->
                     val body = request.getBody(TextBodyReader())
 
-                    status { 200 to "OK" }
                     body { TextBodyWriter(body.text.toUpperCase()) }
                 }
             }.also { it.start() }

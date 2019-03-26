@@ -25,6 +25,7 @@
 package org.authlab.http.server
 
 class FilterHolder(entryPoint: String, val filter: Filter) : EntryPoint(entryPoint)
+
 @ServerMarker
 class FilterHolderBuilder private constructor() {
     var entryPoint: String = "/*"

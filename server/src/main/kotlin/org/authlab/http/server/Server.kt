@@ -32,10 +32,10 @@ import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.ByteBodyReader
+import org.authlab.http.bodies.DelayedBody
+import org.authlab.http.bodies.DelayedBodyReader
 import org.authlab.http.bodies.EmptyBody
 import org.authlab.http.bodies.EmptyBodyWriter
-import org.authlab.http.bodies.TextBody
-import org.authlab.http.bodies.TextBodyReader
 import org.authlab.util.loggerFor
 import java.io.Closeable
 import java.io.IOException
@@ -48,7 +48,7 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 class Server(private val listeners: List<ServerListener>,
-             private val handlers: List<Handler<*>> = emptyList(),
+             private val handlerHolders: List<HandlerHolder<*>> = emptyList(),
              private val filterHolders: List<FilterHolder> = emptyList(),
              private val transformers: List<Transformer> = emptyList(),
              private val initializers: List<Initializer> = emptyList(),
@@ -125,12 +125,12 @@ class Server(private val listeners: List<ServerListener>,
                                 EmptyBodyWriter())
                     } else {
                         // Find handler by path
-                        val handler = handlers.firstOrNull {
+                        val handlerHolder = handlerHolders.firstOrNull {
                             it.pathPattern.matcher(request.requestLine.location.safePath).matches()
                         }
 
-                        if (handler != null) {
-                            val requestResponsePair = handle(handler, request, context, inputStream, listener.secure)
+                        if (handlerHolder != null) {
+                            val requestResponsePair = handle(handlerHolder, request, context, inputStream, listener.secure)
                             serverRequest = requestResponsePair.first
                             serverResponse = requestResponsePair.second
                         } else {
@@ -210,15 +210,15 @@ class Server(private val listeners: List<ServerListener>,
         }
     }
 
-    private fun <B : Body> handle(handler: Handler<B>, request: Request, context: MutableContext, inputStream: InputStream, secure: Boolean):
+    private fun <B : Body> handle(handlerHolder: HandlerHolder<B>, request: Request, context: MutableContext, inputStream: InputStream, secure: Boolean):
             Pair<ServerRequest<B>, ServerResponse> {
-        val body = handler.bodyReader.read(inputStream, request.headers).getBody()
+        val body = handlerHolder.bodyReader.read(inputStream, request.headers).getBody()
         val serverRequest = ServerRequest(request, context, body, if (secure) "https" else "http")
 
         filterHolders.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
                 .forEach { filterHolder ->
                     val filter = filterHolder.filter
-                    _logger.trace("Filtering request by {} @ {}", filter, filterHolder.path)
+                    _logger.trace("Filtering request with {} @ {}", filter, filterHolder.path)
 
                     try {
                         filter.onRequest(serverRequest, context)
@@ -228,9 +228,9 @@ class Server(private val listeners: List<ServerListener>,
                     }
                 }
 
-        _logger.trace("Handling request by {}", handler)
+        _logger.trace("Handling request with {} @ {}", handlerHolder.handler, handlerHolder.path)
 
-        return serverRequest to handler.onRequest(serverRequest).build()
+        return serverRequest to handlerHolder.handler.onRequest(serverRequest).build()
     }
 
     override fun close() {
@@ -279,8 +279,8 @@ open class ServerBuilder constructor() {
     private val _transformerBuilders = mutableListOf<TransformerBuilder>()
     private val _initalizerBuilders = mutableListOf<InitializerBuilder>()
     private val _finalizerBuilders = mutableListOf<FinalizerBuilder>()
-    private val _handlerBuilders = mutableListOf<HandlerBuilder<*, *>>()
-    private var _defaultHandlerBuilder: HandlerBuilder<*, *>? = null
+    private val _handlerBuilders = mutableListOf<HandlerHolderBuilder<*>>()
+    private var _defaultHandlerBuilder: HandlerHolderBuilder<*>? = null
 
     constructor(init: ServerBuilder.() -> Unit) : this() {
         init()
@@ -322,46 +322,56 @@ open class ServerBuilder constructor() {
         _initalizerBuilders.add(InitializerBuilder(init))
     }
 
-    fun finally(init: FinalizerBuilder.() -> Unit) {
+    fun finalize(init: FinalizerBuilder.() -> Unit) {
         _finalizerBuilders.add(FinalizerBuilder(init))
     }
 
-    fun <R : BodyReader<B>, B : Body> handleCallback(entryPoint: String, bodyReader: R, handle: (ServerRequest<B>) -> ServerResponseBuilder) {
-        _handlerBuilders.add(HandlerBuilder(bodyReader) {
+    fun <B : Body> handle(entryPoint: String, bodyReader: BodyReader<B>, handlerBuilder: HandlerBuilder<B>) {
+        _handlerBuilders.add(HandlerHolderBuilder<B> {
             this.entryPoint = entryPoint
-            onRequest(handle)
+            this.handlerBuilder = handlerBuilder
+            this.bodyReader = bodyReader
         })
     }
 
-    fun handleCallback(entryPoint: String, handle: (ServerRequest<TextBody>) -> ServerResponseBuilder) {
-        handleCallback(entryPoint, TextBodyReader(), handle)
-    }
-
-    fun <R : BodyReader<B>, B : Body> handle(bodyReader: R, init: HandlerBuilder<R, B>.() -> Unit) {
-        _handlerBuilders.add(HandlerBuilder(bodyReader, init))
-    }
-
-    fun <R : BodyReader<B>, B : Body> handle(entryPoint: String, bodyReader: R,
-                                             init: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
-        handle(bodyReader) {
+    fun <B : Body> handle(entryPoint: String, bodyReader: BodyReader<B>, handler: Handler<B>) {
+        _handlerBuilders.add(HandlerHolderBuilder<B> {
             this.entryPoint = entryPoint
-            onRequest(init)
+            this.handler = handler
+            this.bodyReader = bodyReader
+        })
+    }
+
+    fun handle(entryPoint: String, handlerBuilder: HandlerBuilder<DelayedBody>) {
+        handle(entryPoint, DelayedBodyReader(), handlerBuilder)
+    }
+
+    fun handle(entryPoint: String, handler: Handler<DelayedBody>) {
+        handle(entryPoint, DelayedBodyReader(), handler)
+    }
+
+    fun <B : Body> default(bodyReader: BodyReader<B>, handlerBuilder: HandlerBuilder<B>) {
+        _defaultHandlerBuilder = HandlerHolderBuilder<B> {
+            this.entryPoint = "*"
+            this.handlerBuilder = handlerBuilder
+            this.bodyReader = bodyReader
         }
     }
 
-    fun handle(entryPoint: String, init: ServerResponseBuilder.(ServerRequest<TextBody>) -> Unit) {
-        handle(entryPoint, TextBodyReader(), init)
-    }
-
-    fun <R : BodyReader<B>, B : Body> default(bodyReader: R, init: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
-        _defaultHandlerBuilder = HandlerBuilder(bodyReader) {
-            entryPoint = "*"
-            onRequest(init)
+    fun <B : Body> default(bodyReader: BodyReader<B>, handler: Handler<B>) {
+        _defaultHandlerBuilder = HandlerHolderBuilder<B> {
+            this.entryPoint = "*"
+            this.handler = handler
+            this.bodyReader = bodyReader
         }
     }
 
-    fun default(init: ServerResponseBuilder.(ServerRequest<TextBody>) -> Unit) {
-        default(TextBodyReader(), init)
+    fun default(handlerBuilder: HandlerBuilder<DelayedBody>) {
+        default(DelayedBodyReader(), handlerBuilder)
+    }
+
+    fun default(handler: Handler<DelayedBody>) {
+        default(DelayedBodyReader(), handler)
     }
 
     fun build(): Server {
@@ -380,7 +390,7 @@ open class ServerBuilder constructor() {
 
         val finalizers = _finalizerBuilders.map(FinalizerBuilder::build)
 
-        val handlers = _handlerBuilders.map(HandlerBuilder<*, *>::build)
+        val handlers = _handlerBuilders.map(HandlerHolderBuilder<*>::build)
                 .toMutableList()
 
         _defaultHandlerBuilder?.apply { handlers.add(build()) }

@@ -35,6 +35,7 @@ interface Filter {
     }
 }
 
+@ServerMarker
 interface FilterBuilder {
     fun build(): Filter
 }

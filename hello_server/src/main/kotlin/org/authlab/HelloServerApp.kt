@@ -28,11 +28,13 @@ package org.authlab
 
 import org.authlab.crypto.createTrustAllSslContext
 import org.authlab.http.authentication.Credential
+import org.authlab.http.bodies.EmptyBodyReader
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.client.BasicAuthenticationManager
 import org.authlab.http.hello.HelloServerBuilder
 import org.authlab.http.server.authorization.oauthAuthorization
 import org.authlab.http.server.authorization.oauthAuthorizationContext
+import org.authlab.http.server.handle
 import java.net.InetAddress
 
 fun main(args: Array<String>) {
@@ -122,8 +124,7 @@ fun main(args: Array<String>) {
             scope("read")
         }
 
-        handle("/foo") {
-            status { 200 to "OK" }
+        handle("/foo", EmptyBodyReader()) {
             body { TextBodyWriter("bar") }
         }
     }.build().start()

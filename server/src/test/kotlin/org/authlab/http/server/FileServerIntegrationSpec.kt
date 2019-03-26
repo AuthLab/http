@@ -26,15 +26,9 @@ package org.authlab.http.server
 
 import io.kotlintest.shouldBe
 import io.kotlintest.specs.StringSpec
-import org.authlab.http.bodies.StreamBodyWriter
-import org.authlab.http.bodies.TextBody
 import org.authlab.http.client.buildClient
 import org.authlab.http.client.getText
 import org.authlab.util.randomPort
-import java.net.URI
-import java.nio.file.Files
-import java.nio.file.NoSuchFileException
-import java.nio.file.Paths
 
 class FileServerIntegrationSpec : StringSpec() {
     override fun isInstancePerTest() = false
@@ -49,7 +43,7 @@ class FileServerIntegrationSpec : StringSpec() {
                     port = serverPort
                 }
 
-                handleCallback("/*", ::serveFile)
+                files("/*", "www")
             }.also { it.start() }
 
             val response = server.use {
@@ -71,36 +65,6 @@ class FileServerIntegrationSpec : StringSpec() {
                 |    </body>
                 |</html>
             """.trimMargin()
-        }
-    }
-
-    private fun serveFile(request: ServerRequest<TextBody>): ServerResponseBuilder {
-        val path = request.requestLine.location.path
-
-        val fileRoot = "www"
-
-        val filePath = URI.create(path).normalize().toString().let {
-            if (it == "/") {
-                "/index.html"
-            } else {
-                it
-            }
-        }
-
-        val completeFilePath = "$fileRoot/$filePath"
-
-        println(completeFilePath)
-
-        val inputStream = try {
-            Files.newInputStream(Paths.get(completeFilePath))
-        } catch (e: NoSuchFileException) {
-            ClassLoader.getSystemResourceAsStream(completeFilePath)
-        }
-
-        return ServerResponseBuilder {
-            status(200 to "OK")
-            header("Content-Type" to "text/html")
-            body(StreamBodyWriter(inputStream))
         }
     }
 }

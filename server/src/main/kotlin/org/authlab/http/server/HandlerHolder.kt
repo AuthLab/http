@@ -1,8 +1,8 @@
 /*
  * MIT License
  *
- * Copyright (c) 2018 Johan Fylling
- *
+ * Copyright (c) 2019 Johan Fylling
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -22,30 +22,30 @@
  * SOFTWARE.
  */
 
-package org.authlab.http.echo
+package org.authlab.http.server
 
-import org.authlab.http.bodies.JsonBodyWriter
-import org.authlab.http.bodies.TextBodyReader
-import org.authlab.http.server.ServerBuilder
-import org.authlab.http.server.ServerMarker
-import org.authlab.http.server.default
-import org.authlab.util.loggerFor
+import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.BodyReader
 
-private val logger = loggerFor("Echo-Server")
+class HandlerHolder<B : Body>(entryPoint: String,
+                              val handler: Handler<B>,
+                              val bodyReader: BodyReader<B>) : EntryPoint(entryPoint)
 
 @ServerMarker
-class EchoServerBuilder private constructor() : ServerBuilder() {
-    init {
-        logger.info("initializing default settings")
+class HandlerHolderBuilder<B: Body> private constructor() {
+    var entryPoint: String = "/*"
+    var handler: Handler<B>? = null
+    var bodyReader: BodyReader<B>? = null
+    var handlerBuilder: HandlerBuilder<B>? = null
 
-        default(TextBodyReader()) { request ->
-            status { 200 to "OK" }
-            body { JsonBodyWriter(request.toHar(), pretty = true) }
-        }
+    constructor(init: HandlerHolderBuilder<B>.() -> Unit) : this() {
+        init()
     }
 
-    constructor(init: EchoServerBuilder.() -> Unit) : this() {
-        logger.info("initializing additional settings")
-        init()
+    fun build(): HandlerHolder<B> {
+        val handler = this.handler ?: handlerBuilder?.build() ?: throw IllegalStateException("Handler or HandlerBuilder not defined for HandlerHolder")
+        val bodyReader = this.bodyReader ?: throw IllegalStateException("BodyReader not defined for HandlerHolder")
+
+        return HandlerHolder(entryPoint, handler, bodyReader)
     }
 }

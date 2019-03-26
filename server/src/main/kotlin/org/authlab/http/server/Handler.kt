@@ -25,39 +25,12 @@
 package org.authlab.http.server
 
 import org.authlab.http.bodies.Body
-import org.authlab.http.bodies.BodyReader
 
-typealias HandlerCallback<B> = (ServerRequest<B>) -> ServerResponseBuilder
-
-class Handler<B : Body>(entryPoint: String, val onRequest: HandlerCallback<B>, val bodyReader: BodyReader<B>) : EntryPoint(entryPoint)
+interface Handler<B : Body> {
+    fun onRequest(request: ServerRequest<B>): ServerResponseBuilder
+}
 
 @ServerMarker
-class HandlerBuilder<R : BodyReader<B>, B : Body> private constructor(val bodyReader: R) {
-    var entryPoint: String = "/"
-
-    private var _onRequest: HandlerCallback<B>? = null
-
-    constructor(bodyReader: R, init: HandlerBuilder<R, B>.() -> Unit) : this(bodyReader) {
-        init()
-    }
-
-    fun onRequest(init: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
-        _onRequest = { request ->
-            val serverResponseBuilder = ServerResponseBuilder()
-            serverResponseBuilder.init(request)
-            serverResponseBuilder
-        }
-    }
-
-    fun onRequest(handle: HandlerCallback<B>) {
-        _onRequest = { request ->
-            handle(request)
-        }
-    }
-
-    fun build(): Handler<B> {
-        val onRequest = _onRequest ?: throw IllegalStateException("onRequest not defined on Handler")
-
-        return Handler(entryPoint, onRequest, bodyReader)
-    }
+interface HandlerBuilder<B : Body> {
+    fun build(): Handler<B>
 }

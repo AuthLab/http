@@ -27,10 +27,12 @@ package org.authlab.http.hello
 import org.authlab.http.Cookie
 import org.authlab.http.SameSite
 import org.authlab.http.authentication.Subject
+import org.authlab.http.bodies.EmptyBodyReader
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.server.ServerBuilder
 import org.authlab.http.server.ServerMarker
 import org.authlab.http.server.ServerResponseBuilder
+import org.authlab.http.server.default
 import org.authlab.http.server.filter
 import org.authlab.http.server.get
 import org.authlab.util.loggerFor
@@ -72,6 +74,13 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
             }
         }
 
+        // Clear MDC
+        finalize {
+            onResponse { _, _, _ ->
+                MDC.clear()
+            }
+        }
+
         filter("/reject") { _, _, abort ->
             abort {
                 status(400 to "Bad Request")
@@ -96,14 +105,7 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
             }
         }
 
-        // Clear MDC
-        finally {
-            onResponse { _, _, _ ->
-                MDC.clear()
-            }
-        }
-
-        default { request ->
+        default(EmptyBodyReader()) { request ->
             logger.info("Saying hello")
 
             val sb = StringBuilder()
@@ -121,7 +123,6 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
                 sb.append('\n').append("transaction").append('=').append(it)
             }
 
-            status(200 to "OK")
             body(TextBodyWriter(sb.toString()))
         }
     }
