@@ -29,13 +29,16 @@ import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.oauth.OauthAuthenticationChallenge
 import org.authlab.http.oauth.client.IntrospectionClient
 import org.authlab.http.oauth.client.IntrospectionResponse
+import org.authlab.http.server.AbortFilterResult
+import org.authlab.http.server.AllowFilterResult
 import org.authlab.http.server.Context
 import org.authlab.http.server.Filter
 import org.authlab.http.server.FilterBuilder
-import org.authlab.http.server.FilterException
+import org.authlab.http.server.FilterResult
 import org.authlab.http.server.MutableContext
 import org.authlab.http.server.ServerBuilder
 import org.authlab.http.server.ServerRequest
+import org.authlab.http.server.ServerResponse
 import org.authlab.http.server.ServerResponseBuilder
 import org.authlab.http.server.get
 import org.authlab.util.loggerFor
@@ -50,13 +53,13 @@ class OauthAuthorizationFilter(val scopes: Set<String> = emptySet(),
                                val introspectionClient: IntrospectionClient?) : Filter {
     private val cache: MutableMap<String, IntrospectionResponse> = mutableMapOf()
 
-    override fun onRequest(request: ServerRequest<*>, context: MutableContext) {
+    override fun onRequest(request: ServerRequest<*>, context: MutableContext) : FilterResult {
         val authenticationResponse = BearerAuthenticationResponse.fromRequestHeaders(request.headers)
                 .firstOrNull()
 
         if (authenticationResponse == null) {
             logger.info("No Basic authorization header on request")
-            throw abort()
+            return AbortFilterResult(createAbortServerResponse())
         }
 
         val accessToken = authenticationResponse.value
@@ -67,9 +70,13 @@ class OauthAuthorizationFilter(val scopes: Set<String> = emptySet(),
 
         val introspectionResponse = introspect(accessToken, context)
 
+        if (introspectionResponse == null) {
+            return AbortFilterResult(createAbortServerResponse())
+        }
+
         if (!introspectionResponse.active) {
             logger.info("Access token is not active")
-            throw abort()
+            return AbortFilterResult(createAbortServerResponse())
         }
 
         val now = Instant.now()
@@ -78,7 +85,7 @@ class OauthAuthorizationFilter(val scopes: Set<String> = emptySet(),
             if (!"Bearer".equals(tokenType, ignoreCase = true)) {
                 logger.info("Access token is not a Bearer token ({})",
                         tokenType)
-                throw abort()
+                return AbortFilterResult(createAbortServerResponse())
             }
         }
 
@@ -86,7 +93,7 @@ class OauthAuthorizationFilter(val scopes: Set<String> = emptySet(),
             if (now.isBefore(issuedAt)) {
                 logger.info("Access token must not be used before it was issued {} (now is {})",
                         issuedAt, now)
-                throw abort()
+                return AbortFilterResult(createAbortServerResponse())
             }
         }
 
@@ -94,7 +101,7 @@ class OauthAuthorizationFilter(val scopes: Set<String> = emptySet(),
             if (now.isBefore(notBefore)) {
                 logger.info("Access token must not be used before {} (now is {})",
                         notBefore, now)
-                throw abort()
+                return AbortFilterResult(createAbortServerResponse())
             }
         }
 
@@ -102,20 +109,20 @@ class OauthAuthorizationFilter(val scopes: Set<String> = emptySet(),
             if (now.isAfter(expiration)) {
                 logger.info("Access token expires at {} (now is {})",
                         expiration, now)
-                throw abort()
+                return AbortFilterResult(createAbortServerResponse())
             }
         }
 
         if (audience != null && introspectionResponse.audience != audience) {
             logger.info("Access token audience '{}' wasn't the expected '{}'",
                     introspectionResponse.audience, audience)
-            throw abort()
+            return AbortFilterResult(createAbortServerResponse())
         }
 
         if (!introspectionResponse.scopes.containsAll(scopes)) {
             logger.info("Access token scope '{}' doesn't satisfy scope '{}'",
                     introspectionResponse.scope, scopes)
-            throw abort()
+            return AbortFilterResult(createAbortServerResponse())
         }
 
         val subject = introspectionResponse.subject
@@ -125,9 +132,11 @@ class OauthAuthorizationFilter(val scopes: Set<String> = emptySet(),
                     subject)
             context.set("subject", subject)
         }
+
+        return AllowFilterResult
     }
 
-    private fun introspect(accessToken: String, context: Context): IntrospectionResponse {
+    private fun introspect(accessToken: String, context: Context): IntrospectionResponse? {
         val cachedIntrospectionResponse = cache[accessToken]
 
         if (cachedIntrospectionResponse != null) {
@@ -172,19 +181,19 @@ class OauthAuthorizationFilter(val scopes: Set<String> = emptySet(),
                     .also { cache[accessToken] = it }
         } catch (e: Exception) {
             logger.info("Token introspection request failed: {}", e.message)
-            throw abort()
+            null
         }
     }
 
-    private fun abort(): FilterException {
-        return FilterException(ServerResponseBuilder {
+    private fun createAbortServerResponse(): ServerResponse {
+        return ServerResponseBuilder {
             status(401 to "Unauthorized")
             header(OauthAuthenticationChallenge.Builder {
                 scope(scopes)
             }.build()
                     .toResponseHeader())
             body(TextBodyWriter("Unauthorized"))
-        }.build())
+        }.build()
     }
 }
 

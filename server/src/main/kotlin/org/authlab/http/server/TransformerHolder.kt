@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2019 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,22 +24,22 @@
 
 package org.authlab.http.server
 
-class FilterHolder(entryPoint: String, val filter: Filter) : EntryPoint(entryPoint)
+class TransformerHolder(entryPoint: String, val transformer: Transformer) : EntryPoint(entryPoint)
 
 @ServerMarker
-class FilterHolderBuilder private constructor() {
+class TransformerHolderBuilder private constructor() {
     var entryPoint: String = "/*"
-    var filter: Filter? = null
-    var filterBuilder: FilterBuilder? = null
+    var transformer: Transformer? = null
+    var transformerBuilder: TransformerBuilder? = null
 
-    constructor(init: FilterHolderBuilder.() -> Unit) : this() {
+    constructor(init: TransformerHolderBuilder.() -> Unit) : this() {
         init()
     }
 
-    fun build(): FilterHolder {
-        val filter = this.filter ?: filterBuilder?.build()
-        ?: throw IllegalStateException("Filter or FilterBuilder not defined for FilterHolder")
+    fun build(): TransformerHolder {
+        val transformer = this.transformer ?: transformerBuilder?.build()
+            ?: throw IllegalStateException("Transformer or TransformerBuilder not defined for TransformerHolder")
 
-        return FilterHolder(entryPoint, filter)
+        return TransformerHolder(entryPoint, transformer)
     }
 }

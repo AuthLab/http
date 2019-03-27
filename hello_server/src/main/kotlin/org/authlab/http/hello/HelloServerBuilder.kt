@@ -31,10 +31,13 @@ import org.authlab.http.bodies.EmptyBodyReader
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.server.ServerBuilder
 import org.authlab.http.server.ServerMarker
-import org.authlab.http.server.ServerResponseBuilder
+import org.authlab.http.server.abort
 import org.authlab.http.server.default
 import org.authlab.http.server.filter
+import org.authlab.http.server.finalize
 import org.authlab.http.server.get
+import org.authlab.http.server.initialize
+import org.authlab.http.server.transform
 import org.authlab.util.loggerFor
 import org.slf4j.MDC
 import java.time.Duration
@@ -51,37 +54,31 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
         context { "session_manager" to SessionManager() }
 
         // Add transaction- and session ID to context
-        initialize {
-            onRequest { request, context ->
-                context.data["transaction_id"] = UUID.randomUUID()
+        initialize { request, context ->
+            context.data["transaction_id"] = UUID.randomUUID()
 
-                val sessionManager = context.get<SessionManager>("session_manager")!!
-                val session = request.cookies["session"]
-                        ?.let { cookie ->
-                            sessionManager.getSession(cookie.value)?.takeIf { it.expires.isAfter(Instant.now()) }
-                        } ?: sessionManager.createSession(Duration.ofMinutes(1L))
+            val sessionManager = context.get<SessionManager>("session_manager")!!
+            val session = request.cookies["session"]
+                    ?.let { cookie ->
+                        sessionManager.getSession(cookie.value)?.takeIf { it.expires.isAfter(Instant.now()) }
+                    } ?: sessionManager.createSession(Duration.ofMinutes(1L))
 
-                context.data["session"] = session
-            }
+            context.data["session"] = session
         }
 
         // Update MDC
-        initialize {
-            onRequest { _, context ->
-                MDC.clear()
-                context.data["transaction_id"]?.also { MDC.put("transaction", it.toString()) }
-                context.get<Session>("session")?.also { MDC.put("session", it.id.toString()) }
-            }
+        initialize { _, context ->
+            MDC.clear()
+            context.data["transaction_id"]?.also { MDC.put("transaction", it.toString()) }
+            context.get<Session>("session")?.also { MDC.put("session", it.id.toString()) }
         }
 
         // Clear MDC
-        finalize {
-            onResponse { _, _, _ ->
-                MDC.clear()
-            }
+        finalize  { _, _, _ ->
+            MDC.clear()
         }
 
-        filter("/reject") { _, _, abort ->
+        filter("/reject") { _, _ ->
             abort {
                 status(400 to "Bad Request")
                 body(TextBodyWriter("rejected"))
@@ -89,19 +86,15 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
         }
 
         // Set session cookie
-        transform {
-            onResponse { request, response, context ->
-                ServerResponseBuilder(response) {
-                    context.data["transaction_id"]?.also {
-                        header("Transaction" to "$it")
-                    }
-                    context.get<Session>("session")?.also {
-                        if (request.cookies["session"]?.value != it.id.toString()) {
-                            cookie(Cookie("session", it.id.toString(), path = request.path,
-                                    httpOnly = true, sameSite = SameSite.STRICT))
-                        }
-                    }
-                }.build()
+        transform("/*") { request, _, context ->
+            context.data["transaction_id"]?.also {
+                header("Transaction" to "$it")
+            }
+            context.get<Session>("session")?.also {
+                if (request.cookies["session"]?.value != it.id.toString()) {
+                    cookie(Cookie("session", it.id.toString(), path = request.path,
+                            httpOnly = true, sameSite = SameSite.STRICT))
+                }
             }
         }
 

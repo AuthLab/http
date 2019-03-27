@@ -24,26 +24,11 @@
 
 package org.authlab.http.server
 
-typealias InitializerCallback = (ServerRequest<*>, MutableContext) -> Unit
+interface Initializer {
+    fun onRequest(request: ServerRequest<*>, context: MutableContext)
+}
 
-class Initializer(entryPoint: String, val onRequest: InitializerCallback) : EntryPoint(entryPoint)
-
-class InitializerBuilder private constructor() {
-    var entryPoint: String = "/*"
-
-    private var _onRequest: InitializerCallback? = null
-
-    constructor(init: InitializerBuilder.() -> Unit) : this() {
-        init()
-    }
-
-    fun onRequest(callback: InitializerCallback) {
-        _onRequest = callback
-    }
-
-    fun build(): Initializer {
-        val onRequest = _onRequest ?: throw IllegalStateException("onRequest not defined on Initializer")
-
-        return Initializer(entryPoint, onRequest)
-    }
+@ServerMarker
+interface InitializerBuilder {
+    fun build(): Initializer
 }

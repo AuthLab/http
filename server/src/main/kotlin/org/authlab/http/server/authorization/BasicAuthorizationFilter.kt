@@ -28,25 +28,28 @@ import org.authlab.http.authentication.BasicAuthenticationChallenge
 import org.authlab.http.authentication.BasicAuthenticationResponse
 import org.authlab.http.authentication.Credential
 import org.authlab.http.bodies.TextBodyWriter
+import org.authlab.http.server.AbortFilterResult
+import org.authlab.http.server.AllowFilterResult
 import org.authlab.http.server.Filter
 import org.authlab.http.server.FilterBuilder
-import org.authlab.http.server.FilterException
+import org.authlab.http.server.FilterResult
 import org.authlab.http.server.MutableContext
 import org.authlab.http.server.ServerBuilder
 import org.authlab.http.server.ServerRequest
+import org.authlab.http.server.ServerResponse
 import org.authlab.http.server.ServerResponseBuilder
 import org.authlab.util.loggerFor
 
 private val logger = loggerFor<BasicAuthorizationFilter>()
 
 class BasicAuthorizationFilter(val realm: String, val credentials: Map<String, Credential>) : Filter {
-    override fun onRequest(request: ServerRequest<*>, context: MutableContext) {
+    override fun onRequest(request: ServerRequest<*>, context: MutableContext) : FilterResult {
         val authenticationResponse = BasicAuthenticationResponse.fromRequestHeaders(request.headers)
                 .firstOrNull()
 
         if (authenticationResponse == null) {
             logger.debug("No Basic authorization header on request")
-            throw abort()
+            return AbortFilterResult(createAbortServerResponse())
         }
 
         val incomingCredential = authenticationResponse.credential
@@ -55,28 +58,29 @@ class BasicAuthorizationFilter(val realm: String, val credentials: Map<String, C
 
         if (credential == null) {
             logger.debug("Unknown subject '{}'", incomingCredential.subject)
-            throw abort()
+            return AbortFilterResult(createAbortServerResponse())
         }
 
         if (credential.password != incomingCredential.password) {
             logger.debug("Invalid password for subject '{}'", incomingCredential.subject)
-            throw abort()
+            return AbortFilterResult(createAbortServerResponse())
         }
 
         logger.debug("Subject '{}' authenticated", incomingCredential.subject)
 
         context.set("subject", authenticationResponse.credential.subject)
 
+        return AllowFilterResult
     }
 
-    private fun abort(): FilterException {
-        return FilterException(ServerResponseBuilder {
+    private fun createAbortServerResponse() : ServerResponse {
+        return ServerResponseBuilder {
             status(401 to "Unauthorized")
             header(BasicAuthenticationChallenge.Builder(realm)
                     .build()
                     .toResponseHeader())
             body(TextBodyWriter("Unauthorized"))
-        }.build())
+        }.build()
     }
 }
 

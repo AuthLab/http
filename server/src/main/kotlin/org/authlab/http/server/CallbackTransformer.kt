@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2019 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,22 +24,18 @@
 
 package org.authlab.http.server
 
-class FilterHolder(entryPoint: String, val filter: Filter) : EntryPoint(entryPoint)
+typealias TransformerCallback = (ServerRequest<*>, ServerResponse, Context) -> ServerResponse
 
-@ServerMarker
-class FilterHolderBuilder private constructor() {
-    var entryPoint: String = "/*"
-    var filter: Filter? = null
-    var filterBuilder: FilterBuilder? = null
-
-    constructor(init: FilterHolderBuilder.() -> Unit) : this() {
-        init()
+class CallbackTransformer(private val callback: TransformerCallback) : Transformer {
+    override fun onResponse(request: ServerRequest<*>, response: ServerResponse, context: Context): ServerResponse {
+        return callback(request, response, context)
     }
+}
 
-    fun build(): FilterHolder {
-        val filter = this.filter ?: filterBuilder?.build()
-        ?: throw IllegalStateException("Filter or FilterBuilder not defined for FilterHolder")
-
-        return FilterHolder(entryPoint, filter)
-    }
+fun ServerBuilder.transform(entryPoint: String, onResponse: ServerResponseBuilder.(ServerRequest<*>, ServerResponse, Context) -> Unit) {
+    transform(entryPoint, CallbackTransformer { request, response, context ->
+        ServerResponseBuilder(response) {
+            onResponse(request, response, context)
+        }.build()
+    })
 }

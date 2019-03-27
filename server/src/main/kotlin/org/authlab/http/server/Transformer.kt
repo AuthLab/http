@@ -24,26 +24,11 @@
 
 package org.authlab.http.server
 
-typealias TransformerCallback = (ServerRequest<*>, ServerResponse, Context) -> ServerResponse
+interface Transformer {
+    fun onResponse(request: ServerRequest<*>, response: ServerResponse, context: Context): ServerResponse
+}
 
-class Transformer(entryPoint: String, val onResponse: TransformerCallback) : EntryPoint(entryPoint)
-
-class TransformerBuilder private constructor() {
-    var entryPoint: String = "/*"
-
-    private var _onResponse: TransformerCallback? = null
-
-    constructor(init: TransformerBuilder.() -> Unit) : this() {
-        init()
-    }
-
-    fun onResponse(callback: TransformerCallback) {
-        _onResponse = callback
-    }
-
-    fun build(): Transformer {
-        val onResponse = _onResponse ?: throw IllegalStateException("onResponse not defined on Transformer")
-
-        return Transformer(entryPoint, onResponse)
-    }
+@ServerMarker
+interface TransformerBuilder {
+    fun build(): Transformer
 }

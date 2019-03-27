@@ -25,14 +25,7 @@
 package org.authlab.http.server
 
 interface Filter {
-    /**
-     * Throws [FilterException] if handling should be aborted.
-     */
-    fun onRequest(request: ServerRequest<*>, context: MutableContext)
-
-    fun abort(init: ServerResponseBuilder.() -> Unit) {
-        throw FilterException(ServerResponseBuilder(init).build())
-    }
+    fun onRequest(request: ServerRequest<*>, context: MutableContext): FilterResult
 }
 
 @ServerMarker
@@ -40,4 +33,14 @@ interface FilterBuilder {
     fun build(): Filter
 }
 
-class FilterException(val response: ServerResponse) : Exception()
+sealed class FilterResult
+
+object AllowFilterResult : FilterResult()
+
+object IgnoreFilterResult : FilterResult()
+
+class AbortFilterResult(val response: ServerResponse) : FilterResult()
+
+fun abort(init: ServerResponseBuilder.() -> Unit): AbortFilterResult {
+    return AbortFilterResult(ServerResponseBuilder(init).build())
+}

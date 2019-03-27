@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2019 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,22 +24,22 @@
 
 package org.authlab.http.server
 
-class FilterHolder(entryPoint: String, val filter: Filter) : EntryPoint(entryPoint)
+class InitializerHolder(entryPoint: String, val initializer: Initializer) : EntryPoint(entryPoint)
 
 @ServerMarker
-class FilterHolderBuilder private constructor() {
+class InitializerHolderBuilder private constructor() {
     var entryPoint: String = "/*"
-    var filter: Filter? = null
-    var filterBuilder: FilterBuilder? = null
+    var initializer: Initializer? = null
+    var initializerBuilder: InitializerBuilder? = null
 
-    constructor(init: FilterHolderBuilder.() -> Unit) : this() {
+    constructor(init: InitializerHolderBuilder.() -> Unit) : this() {
         init()
     }
 
-    fun build(): FilterHolder {
-        val filter = this.filter ?: filterBuilder?.build()
-        ?: throw IllegalStateException("Filter or FilterBuilder not defined for FilterHolder")
+    fun build(): InitializerHolder {
+        val initializer = this.initializer ?: initializerBuilder?.build()
+            ?: throw IllegalStateException("Initializer or InitializerBuilder not defined for InitializerHolder")
 
-        return FilterHolder(entryPoint, filter)
+        return InitializerHolder(entryPoint, initializer)
     }
 }

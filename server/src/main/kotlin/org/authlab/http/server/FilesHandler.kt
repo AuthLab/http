@@ -26,6 +26,7 @@ package org.authlab.http.server
 
 import org.authlab.http.bodies.EmptyBody
 import org.authlab.http.bodies.EmptyBodyReader
+import org.authlab.http.bodies.EmptyBodyWriter
 import org.authlab.http.bodies.StreamBodyWriter
 import org.authlab.util.loggerFor
 import java.net.URI
@@ -36,7 +37,7 @@ import java.nio.file.Paths
 private val logger = loggerFor<FilesHandler>()
 
 class FilesHandler(private val fileRoot: String) : Handler<EmptyBody> {
-    override fun onRequest(request: ServerRequest<EmptyBody>): ServerResponseBuilder {
+    override fun onRequest(request: ServerRequest<EmptyBody>): ServerResponse {
         val path = request.requestLine.location.path
 
         val filePath = URI.create(path).normalize().toString().let {
@@ -61,12 +62,21 @@ class FilesHandler(private val fileRoot: String) : Handler<EmptyBody> {
             ClassLoader.getSystemResourceAsStream(completeFilePath)
         }
 
-        return ServerResponseBuilder {
-            status(200 to "OK")
-            this.allowContentHeaderOverrides = true
-            header("Content-Type" to "text/html; charset=utf-8")
-            body(StreamBodyWriter(inputStream))
+        val response = if (inputStream != null) {
+            ServerResponseBuilder {
+                status(200 to "OK")
+                this.allowContentHeaderOverrides = true
+                header("Content-Type" to "text/html; charset=utf-8")
+                body(StreamBodyWriter(inputStream))
+            }
+        } else {
+            ServerResponseBuilder {
+                status(404 to "Not Found")
+                body(EmptyBodyWriter())
+            }
         }
+
+        return response.build()
     }
 }
 

@@ -24,26 +24,11 @@
 
 package org.authlab.http.server
 
-typealias FinalizerCallback = (ServerRequest<*>, ServerResponse, Context) -> Unit
+interface Finalizer {
+    fun onResponse(request: ServerRequest<*>, response: ServerResponse, context: Context)
+}
 
-class Finalizer(entryPoint: String, val onResponse: FinalizerCallback) : EntryPoint(entryPoint)
-
-class FinalizerBuilder private constructor() {
-    var entryPoint: String = "/*"
-
-    private var _onResponse: FinalizerCallback? = null
-
-    constructor(init: FinalizerBuilder.() -> Unit) : this() {
-        init()
-    }
-
-    fun onResponse(callback: FinalizerCallback) {
-        _onResponse = callback
-    }
-
-    fun build(): Finalizer {
-        val onResponse = _onResponse ?: throw IllegalStateException("onResponse not defined on Finalizer")
-
-        return Finalizer(entryPoint, onResponse)
-    }
+@ServerMarker
+interface FinalizerBuilder {
+    fun build(): Finalizer
 }

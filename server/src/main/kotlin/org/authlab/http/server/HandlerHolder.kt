@@ -43,7 +43,9 @@ class HandlerHolderBuilder<B: Body> private constructor() {
     }
 
     fun build(): HandlerHolder<B> {
-        val handler = this.handler ?: handlerBuilder?.build() ?: throw IllegalStateException("Handler or HandlerBuilder not defined for HandlerHolder")
+        val handler = this.handler ?: handlerBuilder?.build()
+            ?: throw IllegalStateException("Handler or HandlerBuilder not defined for HandlerHolder")
+
         val bodyReader = this.bodyReader ?: throw IllegalStateException("BodyReader not defined for HandlerHolder")
 
         return HandlerHolder(entryPoint, handler, bodyReader)

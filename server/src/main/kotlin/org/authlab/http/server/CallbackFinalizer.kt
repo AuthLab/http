@@ -2,7 +2,7 @@
  * MIT License
  *
  * Copyright (c) 2019 Johan Fylling
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,22 +24,18 @@
 
 package org.authlab.http.server
 
-class FilterHolder(entryPoint: String, val filter: Filter) : EntryPoint(entryPoint)
+typealias FinalizerCallback = (ServerRequest<*>, ServerResponse, Context) -> Unit
 
-@ServerMarker
-class FilterHolderBuilder private constructor() {
-    var entryPoint: String = "/*"
-    var filter: Filter? = null
-    var filterBuilder: FilterBuilder? = null
-
-    constructor(init: FilterHolderBuilder.() -> Unit) : this() {
-        init()
+class CallbackFinalizer(private val callback: FinalizerCallback) : Finalizer {
+    override fun onResponse(request: ServerRequest<*>, response: ServerResponse, context: Context) {
+        callback(request, response, context)
     }
+}
 
-    fun build(): FilterHolder {
-        val filter = this.filter ?: filterBuilder?.build()
-        ?: throw IllegalStateException("Filter or FilterBuilder not defined for FilterHolder")
+fun ServerBuilder.finalize(entryPoint: String, onResponse: FinalizerCallback) {
+    finalize(entryPoint, CallbackFinalizer(onResponse))
+}
 
-        return FilterHolder(entryPoint, filter)
-    }
+fun ServerBuilder.finalize(onResponse: FinalizerCallback) {
+    finalize(CallbackFinalizer(onResponse))
 }

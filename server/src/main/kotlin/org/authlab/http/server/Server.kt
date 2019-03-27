@@ -50,9 +50,9 @@ import java.util.concurrent.TimeUnit
 class Server(private val listeners: List<ServerListener>,
              private val handlerHolders: List<HandlerHolder<*>> = emptyList(),
              private val filterHolders: List<FilterHolder> = emptyList(),
-             private val transformers: List<Transformer> = emptyList(),
-             private val initializers: List<Initializer> = emptyList(),
-             private val finalizers: List<Finalizer> = emptyList(),
+             private val transformerHolders: List<TransformerHolder> = emptyList(),
+             private val initializerHolders: List<InitializerHolder> = emptyList(),
+             private val finalizerHolders: List<FinalizerHolder> = emptyList(),
              private val rootContext: Context,
              private val upgradeInsecureRequestsTo: String?,
              private val threadPool: ThreadPoolExecutor) : Closeable {
@@ -98,11 +98,11 @@ class Server(private val listeners: List<ServerListener>,
 
                     val noBodyRequest = ServerRequest(request, context, EmptyBody(), protocol)
 
-                    initializers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
-                            .forEach { initializer ->
-                                _logger.trace("Initializing transaction with {}", initializer)
+                    initializerHolders.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
+                            .forEach { holder ->
+                                _logger.trace("Initializing transaction with {}", holder.initializer)
 
-                                initializer.onRequest(noBodyRequest, context)
+                                holder.initializer.onRequest(noBodyRequest, context)
                             }
 
                     _logger.info("Incoming request: {}", request.requestLine)
@@ -142,8 +142,9 @@ class Server(private val listeners: List<ServerListener>,
 
                         keepAlive = serverRequest.keepAlive
 
-                        transformers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
-                                .forEach { transformer ->
+                        transformerHolders.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
+                                .forEach { transformerHolder ->
+                                    val transformer = transformerHolder.transformer
                                     _logger.trace("Transforming response with {}", transformer)
 
                                     serverResponse = transformer.onResponse(serverRequest, serverResponse, context)
@@ -152,11 +153,11 @@ class Server(private val listeners: List<ServerListener>,
 
                     writeResponse(serverResponse.internalResponse, outputStream, serverResponse.bodyWriter)
 
-                    finalizers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
-                            .forEach { finalizer ->
-                                _logger.trace("Finalizing transaction with {}", finalizer)
+                    finalizerHolders.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
+                            .forEach { holder ->
+                                _logger.trace("Finalizing transaction with {}", holder.finalizer)
 
-                                finalizer.onResponse(serverRequest, serverResponse, context)
+                                holder.finalizer.onResponse(serverRequest, serverResponse, context)
                             }
 
                     if (keepAlive) {
@@ -220,17 +221,17 @@ class Server(private val listeners: List<ServerListener>,
                     val filter = filterHolder.filter
                     _logger.trace("Filtering request with {} @ {}", filter, filterHolder.path)
 
-                    try {
-                        filter.onRequest(serverRequest, context)
-                    } catch (e: FilterException) {
+                    val filterResult = filter.onRequest(serverRequest, context)
+
+                    if (filterResult is AbortFilterResult) {
                         _logger.info("Response created by filter {} @ {}", filter, filterHolder.path)
-                        return serverRequest to e.response
+                        return serverRequest to filterResult.response
                     }
                 }
 
         _logger.trace("Handling request with {} @ {}", handlerHolder.handler, handlerHolder.path)
 
-        return serverRequest to handlerHolder.handler.onRequest(serverRequest).build()
+        return serverRequest to handlerHolder.handler.onRequest(serverRequest)
     }
 
     override fun close() {
@@ -276,9 +277,9 @@ open class ServerBuilder constructor() {
     private val _contextData = mutableMapOf<String, Any>()
     private val _listenerBuilders = mutableListOf<ServerListenerBuilder>()
     private val _filterBuilders = mutableListOf<FilterHolderBuilder>()
-    private val _transformerBuilders = mutableListOf<TransformerBuilder>()
-    private val _initalizerBuilders = mutableListOf<InitializerBuilder>()
-    private val _finalizerBuilders = mutableListOf<FinalizerBuilder>()
+    private val _transformerBuilders = mutableListOf<TransformerHolderBuilder>()
+    private val _initalizerBuilders = mutableListOf<InitializerHolderBuilder>()
+    private val _finalizerBuilders = mutableListOf<FinalizerHolderBuilder>()
     private val _handlerBuilders = mutableListOf<HandlerHolderBuilder<*>>()
     private var _defaultHandlerBuilder: HandlerHolderBuilder<*>? = null
 
@@ -314,16 +315,62 @@ open class ServerBuilder constructor() {
         })
     }
 
-    fun transform(init: TransformerBuilder.() -> Unit) {
-        _transformerBuilders.add(TransformerBuilder(init))
+    fun transform(entryPoint: String, transformerBuilder: TransformerBuilder) {
+        _transformerBuilders.add(TransformerHolderBuilder {
+            this.entryPoint = entryPoint
+            this.transformerBuilder = transformerBuilder
+        })
     }
 
-    fun initialize(init: InitializerBuilder.() -> Unit) {
-        _initalizerBuilders.add(InitializerBuilder(init))
+    fun transform(entryPoint: String, transformer: Transformer) {
+        _transformerBuilders.add(TransformerHolderBuilder {
+            this.entryPoint = entryPoint
+            this.transformer = transformer
+        })
     }
 
-    fun finalize(init: FinalizerBuilder.() -> Unit) {
-        _finalizerBuilders.add(FinalizerBuilder(init))
+    fun initialize(entryPoint: String, initializerBuilder: InitializerBuilder) {
+        _initalizerBuilders.add(InitializerHolderBuilder {
+            this.entryPoint = entryPoint
+            this.initializerBuilder = initializerBuilder
+        })
+    }
+
+    fun initialize(entryPoint: String, initializer: Initializer) {
+        _initalizerBuilders.add(InitializerHolderBuilder {
+            this.entryPoint = entryPoint
+            this.initializer = initializer
+        })
+    }
+
+    fun initialize(initializerBuilder: InitializerBuilder) {
+        initialize("*", initializerBuilder)
+    }
+
+    fun initialize(initializer: Initializer) {
+        initialize("*", initializer)
+    }
+
+    fun finalize(entryPoint: String, finalizerBuilder: FinalizerBuilder) {
+        _finalizerBuilders.add(FinalizerHolderBuilder {
+            this.entryPoint = entryPoint
+            this.finalizerBuilder = finalizerBuilder
+        })
+    }
+
+    fun finalize(entryPoint: String, finalizer: Finalizer) {
+        _finalizerBuilders.add(FinalizerHolderBuilder {
+            this.entryPoint = entryPoint
+            this.finalizer = finalizer
+        })
+    }
+
+    fun finalize(finanlizerBuilder: FinalizerBuilder) {
+        finalize("*", finanlizerBuilder)
+    }
+
+    fun finalize(finalizer: Finalizer) {
+        finalize("*", finalizer)
     }
 
     fun <B : Body> handle(entryPoint: String, bodyReader: BodyReader<B>, handlerBuilder: HandlerBuilder<B>) {
@@ -384,11 +431,11 @@ open class ServerBuilder constructor() {
 
         val filters = _filterBuilders.map(FilterHolderBuilder::build)
 
-        val transformers = _transformerBuilders.map(TransformerBuilder::build)
+        val transformers = _transformerBuilders.map(TransformerHolderBuilder::build)
 
-        val initializers = _initalizerBuilders.map(InitializerBuilder::build)
+        val initializers = _initalizerBuilders.map(InitializerHolderBuilder::build)
 
-        val finalizers = _finalizerBuilders.map(FinalizerBuilder::build)
+        val finalizers = _finalizerBuilders.map(FinalizerHolderBuilder::build)
 
         val handlers = _handlerBuilders.map(HandlerHolderBuilder<*>::build)
                 .toMutableList()

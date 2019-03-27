@@ -24,36 +24,14 @@
 
 package org.authlab.http.server
 
-typealias FilterCallback = (request: ServerRequest<*>, context: MutableContext, abort: (ServerResponseBuilder.() -> Unit) -> Unit) -> Unit
+typealias FilterCallback = (request: ServerRequest<*>, context: MutableContext) -> FilterResult
 
 class CallbackFilter(private val callback: FilterCallback) : Filter {
-    override fun onRequest(request: ServerRequest<*>, context: MutableContext) {
-        callback(request, context) { responseBuilderInit ->
-            throw FilterException(ServerResponseBuilder(responseBuilderInit).build())
-        }
+    override fun onRequest(request: ServerRequest<*>, context: MutableContext) : FilterResult {
+        return callback(request, context)
     }
 }
 
-class CallbackFilterBuilder private constructor() : FilterBuilder {
-    var callback: FilterCallback? = null
-
-    constructor(init: CallbackFilterBuilder.() -> Unit) : this() {
-        init()
-    }
-
-    fun onRequest(callback: FilterCallback) {
-        this.callback = callback
-    }
-
-    override fun build(): Filter {
-        val callback = this.callback ?: throw IllegalStateException("Callback not defined on CallbackFilterBuilder")
-
-        return CallbackFilter(callback)
-    }
-}
-
-fun ServerBuilder.filter(entryPoint: String, callback: FilterCallback) {
-    filter(entryPoint, CallbackFilterBuilder {
-        onRequest(callback)
-    })
+fun ServerBuilder.filter(entryPoint: String, onRequest: FilterCallback) {
+    filter(entryPoint, CallbackFilter(onRequest))
 }

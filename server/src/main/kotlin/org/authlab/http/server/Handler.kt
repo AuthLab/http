@@ -27,7 +27,7 @@ package org.authlab.http.server
 import org.authlab.http.bodies.Body
 
 interface Handler<B : Body> {
-    fun onRequest(request: ServerRequest<B>): ServerResponseBuilder
+    fun onRequest(request: ServerRequest<B>): ServerResponse
 }
 
 @ServerMarker
