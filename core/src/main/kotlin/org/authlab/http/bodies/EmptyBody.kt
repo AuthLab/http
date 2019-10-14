@@ -27,14 +27,14 @@ package org.authlab.http.bodies
 import java.io.OutputStream
 import java.nio.ByteBuffer
 
-class EmptyBody: Body {
+object EmptyBody: Body {
     override val writer: BodyWriter
-        get() = EmptyBodyWriter()
+        get() = EmptyBodyWriter
 }
 
-fun emptyBody() = EmptyBody()
+fun emptyBody() = EmptyBody
 
-class EmptyBodyReader : AbstractBodyReader<EmptyBody>() {
+object EmptyBodyReader : AbstractBodyReader<EmptyBody>() {
     override fun onReadStart(contentLength: Int?) {
         // Nop
     }
@@ -44,10 +44,10 @@ class EmptyBodyReader : AbstractBodyReader<EmptyBody>() {
     }
 
     override fun getBody(): EmptyBody
-            = EmptyBody()
+            = EmptyBody
 }
 
-class EmptyBodyWriter : BodyWriter {
+object EmptyBodyWriter : BodyWriter {
     override val contentLength: Int?
         get() = null
 

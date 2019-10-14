@@ -35,3 +35,7 @@ class CallbackFilter(private val callback: FilterCallback) : Filter {
 fun ServerBuilder.filter(entryPoint: String, onRequest: FilterCallback) {
     filter(entryPoint, CallbackFilter(onRequest))
 }
+
+fun EntryPointBuilder.filter(onRequest: FilterCallback) {
+    filter(CallbackFilter(onRequest))
+}

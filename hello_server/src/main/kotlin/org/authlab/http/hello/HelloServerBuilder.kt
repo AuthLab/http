@@ -27,15 +27,14 @@ package org.authlab.http.hello
 import org.authlab.http.Cookie
 import org.authlab.http.SameSite
 import org.authlab.http.authentication.Subject
-import org.authlab.http.bodies.EmptyBodyReader
 import org.authlab.http.bodies.TextBodyWriter
 import org.authlab.http.server.ServerBuilder
 import org.authlab.http.server.ServerMarker
 import org.authlab.http.server.abort
-import org.authlab.http.server.default
 import org.authlab.http.server.filter
 import org.authlab.http.server.finalize
 import org.authlab.http.server.get
+import org.authlab.http.server.handle
 import org.authlab.http.server.initialize
 import org.authlab.http.server.transform
 import org.authlab.util.loggerFor
@@ -53,70 +52,74 @@ class HelloServerBuilder private constructor() : ServerBuilder() {
 
         context { "session_manager" to SessionManager() }
 
-        // Add transaction- and session ID to context
-        initialize { request, context ->
-            context.data["transaction_id"] = UUID.randomUUID()
-
-            val sessionManager = context.get<SessionManager>("session_manager")!!
-            val session = request.cookies["session"]
-                    ?.let { cookie ->
-                        sessionManager.getSession(cookie.value)?.takeIf { it.expires.isAfter(Instant.now()) }
-                    } ?: sessionManager.createSession(Duration.ofMinutes(1L))
-
-            context.data["session"] = session
-        }
-
-        // Update MDC
-        initialize { _, context ->
-            MDC.clear()
-            context.data["transaction_id"]?.also { MDC.put("transaction", it.toString()) }
-            context.get<Session>("session")?.also { MDC.put("session", it.id.toString()) }
-        }
-
-        // Clear MDC
-        finalize  { _, _, _ ->
-            MDC.clear()
-        }
-
-        filter("/reject") { _, _ ->
-            abort {
-                status(400 to "Bad Request")
-                body(TextBodyWriter("rejected"))
-            }
-        }
-
-        // Set session cookie
-        transform("/*") { request, _, context ->
-            context.data["transaction_id"]?.also {
-                header("Transaction" to "$it")
-            }
-            context.get<Session>("session")?.also {
-                if (request.cookies["session"]?.value != it.id.toString()) {
-                    cookie(Cookie("session", it.id.toString(), path = request.path,
-                            httpOnly = true, sameSite = SameSite.STRICT))
+        path("reject") {
+            filter { _, _ ->
+                abort {
+                    status(400 to "Bad Request")
+                    body(TextBodyWriter("rejected"))
                 }
             }
         }
 
-        default(EmptyBodyReader()) { request ->
-            logger.info("Saying hello")
+        root {
+            // Add transaction- and session ID to context
+            initialize { request, context ->
+                context.data["transaction_id"] = UUID.randomUUID()
 
-            val sb = StringBuilder()
-            sb.append("hello")
+                val sessionManager = context.get<SessionManager>("session_manager")!!
+                val session = request.cookies["session"]
+                        ?.let { cookie ->
+                            sessionManager.getSession(cookie.value)?.takeIf { it.expires.isAfter(Instant.now()) }
+                        } ?: sessionManager.createSession(Duration.ofMinutes(1L))
 
-            request.context.get<Subject>("subject")?.also {
-                sb.append(" ").append(it.displayName)
+                context.data["session"] = session
             }
 
-            request.context.data["session"]?.also {
-                sb.append('\n').append("session").append('=').append(it)
+            // Update MDC
+            initialize { _, context ->
+                MDC.clear()
+                context.data["transaction_id"]?.also { MDC.put("transaction", it.toString()) }
+                context.get<Session>("session")?.also { MDC.put("session", it.id.toString()) }
             }
 
-            request.context.data["transaction_id"]?.also {
-                sb.append('\n').append("transaction").append('=').append(it)
+            // Clear MDC
+            finalize  { _, _, _ ->
+                MDC.clear()
             }
 
-            body(TextBodyWriter(sb.toString()))
+            // Set session cookie
+            transform { request, _, context ->
+                context.data["transaction_id"]?.also {
+                    header("Transaction" to "$it")
+                }
+                context.get<Session>("session")?.also {
+                    if (request.cookies["session"]?.value != it.id.toString()) {
+                        cookie(Cookie("session", it.id.toString(), path = request.path,
+                                httpOnly = true, sameSite = SameSite.STRICT))
+                    }
+                }
+            }
+
+            handle { request ->
+                logger.info("Saying hello")
+
+                val sb = StringBuilder()
+                sb.append("hello")
+
+                request.context.get<Subject>("subject")?.also {
+                    sb.append(" ").append(it.displayName)
+                }
+
+                request.context.data["session"]?.also {
+                    sb.append('\n').append("session").append('=').append(it)
+                }
+
+                request.context.data["transaction_id"]?.also {
+                    sb.append('\n').append("transaction").append('=').append(it)
+                }
+
+                body(TextBodyWriter(sb.toString()))
+            }
         }
     }
 

@@ -32,8 +32,16 @@ class CallbackTransformer(private val callback: TransformerCallback) : Transform
     }
 }
 
-fun ServerBuilder.transform(entryPoint: String, onResponse: ServerResponseBuilder.(ServerRequest<*>, ServerResponse, Context) -> Unit) {
-    transform(entryPoint, CallbackTransformer { request, response, context ->
+//fun ServerBuilder.transform(entryPoint: String, onResponse: ServerResponseBuilder.(ServerRequest<*>, ServerResponse, Context) -> Unit) {
+//    transform(entryPoint, CallbackTransformer { request, response, context ->
+//        ServerResponseBuilder(response) {
+//            onResponse(request, response, context)
+//        }.build()
+//    })
+//}
+
+fun EntryPointBuilder.transform(onResponse: ServerResponseBuilder.(ServerRequest<*>, ServerResponse, Context) -> Unit) {
+    transform(CallbackTransformer { request, response, context ->
         ServerResponseBuilder(response) {
             onResponse(request, response, context)
         }.build()

@@ -37,6 +37,9 @@ import java.nio.file.Paths
 private val logger = loggerFor<FilesHandler>()
 
 class FilesHandler(private val fileRoot: String) : Handler<EmptyBody> {
+    override fun getBodyReader()
+            = EmptyBodyReader
+
     override fun onRequest(request: ServerRequest<EmptyBody>): ServerResponse {
         val path = request.requestLine.location.path
 
@@ -92,14 +95,18 @@ class FilesHandlerBuilder private constructor() : HandlerBuilder<EmptyBody> {
     }
 }
 
-fun ServerBuilder.files(entryPoint: String, fileRoot: String = "www") {
-    handle(entryPoint, EmptyBodyReader(), FilesHandlerBuilder {
-        this.fileRoot = fileRoot
-    })
-}
+//fun ServerBuilder.files(entryPoint: String, fileRoot: String = "www") {
+//    handle(entryPoint, EmptyBodyReader(), FilesHandlerBuilder {
+//        this.fileRoot = fileRoot
+//    })
+//}
 
-fun ServerBuilder.defaultFiles(fileRoot: String = "www") {
-    default(EmptyBodyReader(), FilesHandlerBuilder {
-        this.fileRoot = fileRoot
-    })
+//fun ServerBuilder.defaultFiles(fileRoot: String = "www") {
+//    default(EmptyBodyReader(), FilesHandlerBuilder {
+//        this.fileRoot = fileRoot
+//    })
+//}
+
+fun EntryPointBuilder.files(fileRoot: String = "www") {
+    handle(FilesHandler(fileRoot))
 }

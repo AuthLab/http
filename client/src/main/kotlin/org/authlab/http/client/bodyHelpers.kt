@@ -25,10 +25,7 @@
 package org.authlab.http.client
 
 import org.authlab.http.FormParametersBuilder
-import org.authlab.http.Headers
 import org.authlab.http.ParametersBuilder
-import org.authlab.http.bodies.Body
-import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.DelayedBody
 import org.authlab.http.bodies.EmptyBodyReader
 import org.authlab.http.bodies.FormBodyWriter
@@ -36,19 +33,9 @@ import org.authlab.http.bodies.JsonBodyReader
 import org.authlab.http.bodies.JsonBodyWriter
 import org.authlab.http.bodies.TextBodyReader
 import org.authlab.util.loggerFor
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 
 object BodyHelpers {
     val _logger = loggerFor<BodyHelpers>()
-}
-
-fun <B : Body> convertBody(body: Body, bodyReader: BodyReader<B>): B {
-    val outputStream = ByteArrayOutputStream()
-    body.writer.write(outputStream)
-    val headers = Headers().withHeader("Content-Length", "${outputStream.size()}")
-    return bodyReader.read(ByteArrayInputStream(outputStream.toByteArray()), headers)
-            .getBody()
 }
 
 fun ClientResponse<*>.asText(): String {
@@ -56,7 +43,7 @@ fun ClientResponse<*>.asText(): String {
 }
 
 fun ClientResponse<*>.ignoreBody() {
-    getBody(EmptyBodyReader())
+    getBody(EmptyBodyReader)
 }
 
 inline fun <reified T> ClientResponse<*>.asJson(): T {
@@ -91,6 +78,6 @@ fun Client.postForm(parametersInit: ParametersBuilder.() -> Unit, path: String? 
 fun Client.postForm(parameters: Map<String, String>, path: String? = null,
                     requestInit: RequestBuilder.() -> Unit = {}): ClientResponse<DelayedBody> {
     val formParametersBuilder = FormParametersBuilder()
-    parameters.forEach { key, value -> formParametersBuilder.parameter { key to value } }
+    parameters.forEach { (key, value) -> formParametersBuilder.parameter { key to value } }
     return post(FormBodyWriter(formParametersBuilder.build()), path, requestInit)
 }

@@ -29,11 +29,10 @@ import org.authlab.http.Request
 import org.authlab.http.Response
 import org.authlab.http.ResponseLine
 import org.authlab.http.bodies.Body
-import org.authlab.http.bodies.BodyReader
 import org.authlab.http.bodies.BodyWriter
 import org.authlab.http.bodies.ByteBodyReader
+import org.authlab.http.bodies.CachingDelayedBody
 import org.authlab.http.bodies.DelayedBody
-import org.authlab.http.bodies.DelayedBodyReader
 import org.authlab.http.bodies.EmptyBody
 import org.authlab.http.bodies.EmptyBodyWriter
 import org.authlab.util.loggerFor
@@ -48,14 +47,15 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
 class Server(private val listeners: List<ServerListener>,
-             private val handlerHolders: List<HandlerHolder<*>> = emptyList(),
-             private val filterHolders: List<FilterHolder> = emptyList(),
-             private val transformerHolders: List<TransformerHolder> = emptyList(),
-             private val initializerHolders: List<InitializerHolder> = emptyList(),
-             private val finalizerHolders: List<FinalizerHolder> = emptyList(),
+//             private val handlerHolders: List<HandlerHolder<*>> = emptyList(),
+//             private val filterHolders: List<FilterHolder> = emptyList(),
+//             private val transformerHolders: List<TransformerHolder> = emptyList(),
+             private val initializers: List<Initializer> = emptyList(),
+             private val finalizers: List<Finalizer> = emptyList(),
              private val rootContext: Context,
              private val upgradeInsecureRequestsTo: String?,
-             private val threadPool: ThreadPoolExecutor) : Closeable {
+             private val threadPool: ThreadPoolExecutor,
+             private val entryPoints: List<EntryPoint>) : Closeable {
     companion object {
         private val _logger = loggerFor<Server>()
     }
@@ -98,12 +98,17 @@ class Server(private val listeners: List<ServerListener>,
 
                     val noBodyRequest = ServerRequest(request, context, EmptyBody(), protocol)
 
-                    initializerHolders.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
-                            .forEach { holder ->
-                                _logger.trace("Initializing transaction with {}", holder.initializer)
+//                    initializerHolders.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
+//                            .forEach { holder ->
+//                                _logger.trace("Initializing transaction with {}", holder.initializer)
+//
+//                                holder.initializer.onRequest(noBodyRequest, context)
+//                            }
 
-                                holder.initializer.onRequest(noBodyRequest, context)
-                            }
+                    initializers.forEach { initializer ->
+                        _logger.trace("Initializing transaction with {}", initializer)
+                        initializer.onRequest(noBodyRequest, context)
+                    }
 
                     _logger.info("Incoming request: {}", request.requestLine)
 
@@ -122,8 +127,30 @@ class Server(private val listeners: List<ServerListener>,
                         serverResponse = ServerResponse(Response(ResponseLine(307, "Moved Temporarily"))
                                 .withHeader(Header("Location", upgradeInsecureRequestsTo))
                                 .withHeader(Header("Vary", "Upgrade-Insecure-Requests")),
-                                EmptyBodyWriter())
+                                EmptyBodyWriter)
                     } else {
+                        // Find entrypoint by path
+                        val entryPoints = entryPoints.filter {
+                            it.handles(request.requestLine.location)
+                        }
+
+                        if (entryPoints.isEmpty()) {
+                            serverRequest = ServerRequest(request,
+                                    context,
+                                    ByteBodyReader().read(inputStream, request.headers).getBody(),
+                                    protocol)
+                            serverResponse = ServerResponse(Response(ResponseLine(404, "Not Found")), EmptyBodyWriter)
+                        } else {
+                            val body = CachingDelayedBody(inputStream, request.headers)
+                            // FIXME: Figure out the scheme a better way
+                            serverRequest = ServerRequest(request, context, body, if (listener.secure) "https" else "http")
+
+                            entryPoints.map { entryPoint -> entryPoint.onRequest(serverRequest) }
+                        }
+
+
+
+
                         // Find handler by path
                         val handlerHolder = handlerHolders.firstOrNull {
                             it.pathPattern.matcher(request.requestLine.location.safePath).matches()
@@ -153,12 +180,17 @@ class Server(private val listeners: List<ServerListener>,
 
                     writeResponse(serverResponse.internalResponse, outputStream, serverResponse.bodyWriter)
 
-                    finalizerHolders.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
-                            .forEach { holder ->
-                                _logger.trace("Finalizing transaction with {}", holder.finalizer)
+//                    finalizers.filter { it.pathPattern.matcher(request.requestLine.location.safePath).matches() }
+//                            .forEach { holder ->
+//                                _logger.trace("Finalizing transaction with {}", holder.finalizer)
+//
+//                                holder.finalizer.onResponse(serverRequest, serverResponse, context)
+//                            }
 
-                                holder.finalizer.onResponse(serverRequest, serverResponse, context)
-                            }
+                    finalizers.forEach { finalizer ->
+                        _logger.trace("Finalizing transaction with {}", finalizer)
+                        finalizer.onResponse(serverRequest, serverResponse, context)
+                    }
 
                     if (keepAlive) {
                         _logger.debug("Connection keep-alive requested")
@@ -276,12 +308,14 @@ open class ServerBuilder constructor() {
 
     private val _contextData = mutableMapOf<String, Any>()
     private val _listenerBuilders = mutableListOf<ServerListenerBuilder>()
-    private val _filterBuilders = mutableListOf<FilterHolderBuilder>()
-    private val _transformerBuilders = mutableListOf<TransformerHolderBuilder>()
-    private val _initalizerBuilders = mutableListOf<InitializerHolderBuilder>()
-    private val _finalizerBuilders = mutableListOf<FinalizerHolderBuilder>()
-    private val _handlerBuilders = mutableListOf<HandlerHolderBuilder<*>>()
-    private var _defaultHandlerBuilder: HandlerHolderBuilder<*>? = null
+//    private val _filterBuilders = mutableListOf<FilterHolderBuilder>()
+//    private val _transformerBuilders = mutableListOf<TransformerHolderBuilder>()
+//    private val _initalizerBuilders = mutableListOf<InitializerHolderBuilder>()
+//    private val _finalizerBuilders = mutableListOf<FinalizerHolderBuilder>()
+//    private val _handlerBuilders = mutableListOf<HandlerHolderBuilder<*>>()
+//    private var _defaultHandlerBuilder: HandlerHolderBuilder<*>? = null
+    private val entryPointBuilders = mutableListOf<EntryPointBuilder>()
+    private var defaultEntrypointBuilder: EntryPointBuilder? = null
 
     constructor(init: ServerBuilder.() -> Unit) : this() {
         init()
@@ -301,124 +335,136 @@ open class ServerBuilder constructor() {
         _listenerBuilders.add(ServerListenerBuilder(init))
     }
 
-    fun filter(entryPoint: String, filterBuilder: FilterBuilder) {
-        _filterBuilders.add(FilterHolderBuilder {
-            this.entryPoint = entryPoint
-            this.filterBuilder = filterBuilder
-        })
+//    fun filter(entryPoint: String, filterBuilder: FilterBuilder) {
+//        _filterBuilders.add(FilterHolderBuilder {
+//            this.entryPoint = entryPoint
+//            this.filterBuilder = filterBuilder
+//        })
+//    }
+
+//    fun filter(entryPoint: String, filter: Filter) {
+//        _filterBuilders.add(FilterHolderBuilder {
+//            this.entryPoint = entryPoint
+//            this.filter = filter
+//        })
+//    }
+
+//    fun transform(entryPoint: String, transformerBuilder: TransformerBuilder) {
+//        _transformerBuilders.add(TransformerHolderBuilder {
+//            this.entryPoint = entryPoint
+//            this.transformerBuilder = transformerBuilder
+//        })
+//    }
+
+//    fun transform(entryPoint: String, transformer: Transformer) {
+//        _transformerBuilders.add(TransformerHolderBuilder {
+//            this.entryPoint = entryPoint
+//            this.transformer = transformer
+//        })
+//    }
+
+//    fun initialize(entryPoint: String, initializerBuilder: InitializerBuilder) {
+//        _initalizerBuilders.add(InitializerHolderBuilder {
+//            this.entryPoint = entryPoint
+//            this.initializerBuilder = initializerBuilder
+//        })
+//    }
+
+//    fun initialize(entryPoint: String, initializer: Initializer) {
+//        _initalizerBuilders.add(InitializerHolderBuilder {
+//            this.entryPoint = entryPoint
+//            this.initializer = initializer
+//        })
+//    }
+
+//    fun initialize(initializerBuilder: InitializerBuilder) {
+//        initialize("*", initializerBuilder)
+//    }
+
+//    fun initialize(initializer: Initializer) {
+//        initialize("*", initializer)
+//    }
+
+//    fun finalize(entryPoint: String, finalizerBuilder: FinalizerBuilder) {
+//        _finalizerBuilders.add(FinalizerHolderBuilder {
+//            this.entryPoint = entryPoint
+//            this.finalizerBuilder = finalizerBuilder
+//        })
+//    }
+
+//    fun finalize(entryPoint: String, finalizer: Finalizer) {
+//        _finalizerBuilders.add(FinalizerHolderBuilder {
+//            this.entryPoint = entryPoint
+//            this.finalizer = finalizer
+//        })
+//    }
+
+//    fun finalize(finanlizerBuilder: FinalizerBuilder) {
+//        finalize("*", finanlizerBuilder)
+//    }
+
+//    fun finalize(finalizer: Finalizer) {
+//        finalize("*", finalizer)
+//    }
+
+//    fun <B : Body> handle(entryPoint: String, bodyReader: BodyReader<B>, handlerBuilder: HandlerBuilder<B>) {
+//        _handlerBuilders.add(HandlerHolderBuilder<B> {
+//            this.entryPoint = entryPoint
+//            this.handlerBuilder = handlerBuilder
+//            this.bodyReader = bodyReader
+//        })
+//    }
+
+//    fun <B : Body> handle(entryPoint: String, bodyReader: BodyReader<B>, handler: Handler<B>) {
+//        _handlerBuilders.add(HandlerHolderBuilder<B> {
+//            this.entryPoint = entryPoint
+//            this.handler = handler
+//            this.bodyReader = bodyReader
+//        })
+//    }
+
+//    fun handle(entryPoint: String, handlerBuilder: HandlerBuilder<DelayedBody>) {
+//        handle(entryPoint, DelayedBodyReader(), handlerBuilder)
+//    }
+
+//    fun handle(entryPoint: String, handler: Handler<DelayedBody>) {
+//        handle(entryPoint, DelayedBodyReader(), handler)
+//    }
+
+//    fun <B : Body> default(bodyReader: BodyReader<B>, handlerBuilder: HandlerBuilder<B>) {
+//        _defaultHandlerBuilder = HandlerHolderBuilder<B> {
+//            this.entryPoint = "*"
+//            this.handlerBuilder = handlerBuilder
+//            this.bodyReader = bodyReader
+//        }
+//    }
+
+//    fun <B : Body> default(bodyReader: BodyReader<B>, handler: Handler<B>) {
+//        _defaultHandlerBuilder = HandlerHolderBuilder<B> {
+//            this.entryPoint = "*"
+//            this.handler = handler
+//            this.bodyReader = bodyReader
+//        }
+//    }
+
+//    fun default(handlerBuilder: HandlerBuilder<EmptyBody>) {
+//        default(EmptyBodyReader, handlerBuilder)
+//    }
+
+//    fun default(handler: Handler<EmptyBody>) {
+//        default(EmptyBodyReader, handler)
+//    }
+
+    fun path(path: String, init: EntryPointBuilder.() -> Unit) {
+        entryPointBuilders.add(EntryPointBuilder(path, init))
     }
 
-    fun filter(entryPoint: String, filter: Filter) {
-        _filterBuilders.add(FilterHolderBuilder {
-            this.entryPoint = entryPoint
-            this.filter = filter
-        })
+    fun root(init: EntryPointBuilder.() -> Unit) {
+        entryPointBuilders.add(EntryPointBuilder("/", init))
     }
 
-    fun transform(entryPoint: String, transformerBuilder: TransformerBuilder) {
-        _transformerBuilders.add(TransformerHolderBuilder {
-            this.entryPoint = entryPoint
-            this.transformerBuilder = transformerBuilder
-        })
-    }
-
-    fun transform(entryPoint: String, transformer: Transformer) {
-        _transformerBuilders.add(TransformerHolderBuilder {
-            this.entryPoint = entryPoint
-            this.transformer = transformer
-        })
-    }
-
-    fun initialize(entryPoint: String, initializerBuilder: InitializerBuilder) {
-        _initalizerBuilders.add(InitializerHolderBuilder {
-            this.entryPoint = entryPoint
-            this.initializerBuilder = initializerBuilder
-        })
-    }
-
-    fun initialize(entryPoint: String, initializer: Initializer) {
-        _initalizerBuilders.add(InitializerHolderBuilder {
-            this.entryPoint = entryPoint
-            this.initializer = initializer
-        })
-    }
-
-    fun initialize(initializerBuilder: InitializerBuilder) {
-        initialize("*", initializerBuilder)
-    }
-
-    fun initialize(initializer: Initializer) {
-        initialize("*", initializer)
-    }
-
-    fun finalize(entryPoint: String, finalizerBuilder: FinalizerBuilder) {
-        _finalizerBuilders.add(FinalizerHolderBuilder {
-            this.entryPoint = entryPoint
-            this.finalizerBuilder = finalizerBuilder
-        })
-    }
-
-    fun finalize(entryPoint: String, finalizer: Finalizer) {
-        _finalizerBuilders.add(FinalizerHolderBuilder {
-            this.entryPoint = entryPoint
-            this.finalizer = finalizer
-        })
-    }
-
-    fun finalize(finanlizerBuilder: FinalizerBuilder) {
-        finalize("*", finanlizerBuilder)
-    }
-
-    fun finalize(finalizer: Finalizer) {
-        finalize("*", finalizer)
-    }
-
-    fun <B : Body> handle(entryPoint: String, bodyReader: BodyReader<B>, handlerBuilder: HandlerBuilder<B>) {
-        _handlerBuilders.add(HandlerHolderBuilder<B> {
-            this.entryPoint = entryPoint
-            this.handlerBuilder = handlerBuilder
-            this.bodyReader = bodyReader
-        })
-    }
-
-    fun <B : Body> handle(entryPoint: String, bodyReader: BodyReader<B>, handler: Handler<B>) {
-        _handlerBuilders.add(HandlerHolderBuilder<B> {
-            this.entryPoint = entryPoint
-            this.handler = handler
-            this.bodyReader = bodyReader
-        })
-    }
-
-    fun handle(entryPoint: String, handlerBuilder: HandlerBuilder<DelayedBody>) {
-        handle(entryPoint, DelayedBodyReader(), handlerBuilder)
-    }
-
-    fun handle(entryPoint: String, handler: Handler<DelayedBody>) {
-        handle(entryPoint, DelayedBodyReader(), handler)
-    }
-
-    fun <B : Body> default(bodyReader: BodyReader<B>, handlerBuilder: HandlerBuilder<B>) {
-        _defaultHandlerBuilder = HandlerHolderBuilder<B> {
-            this.entryPoint = "*"
-            this.handlerBuilder = handlerBuilder
-            this.bodyReader = bodyReader
-        }
-    }
-
-    fun <B : Body> default(bodyReader: BodyReader<B>, handler: Handler<B>) {
-        _defaultHandlerBuilder = HandlerHolderBuilder<B> {
-            this.entryPoint = "*"
-            this.handler = handler
-            this.bodyReader = bodyReader
-        }
-    }
-
-    fun default(handlerBuilder: HandlerBuilder<DelayedBody>) {
-        default(DelayedBodyReader(), handlerBuilder)
-    }
-
-    fun default(handler: Handler<DelayedBody>) {
-        default(DelayedBodyReader(), handler)
+    fun default(init: EntryPointBuilder.() -> Unit) {
+        defaultEntrypointBuilder = EntryPointBuilder("*", init)
     }
 
     fun build(): Server {
@@ -429,22 +475,30 @@ open class ServerBuilder constructor() {
             listeners.add(ServerListenerBuilder().build()) // Construct a default listener
         }
 
-        val filters = _filterBuilders.map(FilterHolderBuilder::build)
-
-        val transformers = _transformerBuilders.map(TransformerHolderBuilder::build)
-
-        val initializers = _initalizerBuilders.map(InitializerHolderBuilder::build)
-
-        val finalizers = _finalizerBuilders.map(FinalizerHolderBuilder::build)
-
-        val handlers = _handlerBuilders.map(HandlerHolderBuilder<*>::build)
-                .toMutableList()
-
-        _defaultHandlerBuilder?.apply { handlers.add(build()) }
+//        val filters = _filterBuilders.map(FilterHolderBuilder::build)
+//
+//        val transformers = _transformerBuilders.map(TransformerHolderBuilder::build)
+//
+//        val initializers = _initalizerBuilders.map(InitializerHolderBuilder::build)
+//
+//        val finalizers = _finalizerBuilders.map(FinalizerHolderBuilder::build)
+//
+//        val handlers = _handlerBuilders.map(HandlerHolderBuilder<*>::build)
+//                .toMutableList()
+//
+//        _defaultHandlerBuilder?.apply { handlers.add(build()) }
 
         val threadPool = this.threadPool ?: Executors.newFixedThreadPool(threadPoolSize) as ThreadPoolExecutor
 
-        return Server(listeners, handlers, filters, transformers, initializers, finalizers,
-                MutableContext(_contextData), upgradeInsecureRequestsTo, threadPool)
+        val entryPoints = entryPointBuilders.map(EntryPointBuilder::build)
+                .toMutableList()
+
+        defaultEntrypointBuilder?.apply { entryPoints.add(build()) }
+
+        return Server(listeners, MutableContext(_contextData), upgradeInsecureRequestsTo, threadPool, entryPoints)
     }
+}
+
+open class EntryPointHolder {
+
 }

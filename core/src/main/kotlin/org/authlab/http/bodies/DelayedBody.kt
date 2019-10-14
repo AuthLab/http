@@ -28,12 +28,25 @@ import org.authlab.http.Headers
 import java.io.InputStream
 import java.io.OutputStream
 
-class DelayedBody(private val inputStream: InputStream, private val headers: Headers) : Body {
+open class DelayedBody(private val inputStream: InputStream, private val headers: Headers) : Body {
     override val writer: BodyWriter
         get() = DelayedBodyWriter()
 
-    fun <B : Body> read(bodyReader: BodyReader<B>) : B {
+    open fun <B : Body> read(bodyReader: BodyReader<B>) : B {
         return bodyReader.read(inputStream, headers).getBody()
+    }
+}
+
+class CachingDelayedBody(inputStream: InputStream, headers: Headers) : DelayedBody(inputStream, headers) {
+    private var _cachedBody: Body? = null
+
+    val cachedBody: Body?
+            = _cachedBody
+
+    override fun <B : Body> read(bodyReader: BodyReader<B>) : B {
+        return _cachedBody?.let { convertBody(it, bodyReader) }
+                ?: super.read(bodyReader)
+                        .also { body -> _cachedBody = body }
     }
 }
 

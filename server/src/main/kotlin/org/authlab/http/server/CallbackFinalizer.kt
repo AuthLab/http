@@ -39,3 +39,7 @@ fun ServerBuilder.finalize(entryPoint: String, onResponse: FinalizerCallback) {
 fun ServerBuilder.finalize(onResponse: FinalizerCallback) {
     finalize(CallbackFinalizer(onResponse))
 }
+
+fun EntryPointBuilder.finalize(onResponse: FinalizerCallback) {
+    finalize(CallbackFinalizer(onResponse))
+}

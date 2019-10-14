@@ -120,13 +120,25 @@ fun main(args: Array<String>) {
             }
         }
 
-        oauthAuthorization("/me") {
-            scope("read")
+        path("me") {
+            oauthAuthorization {
+                scope("read")
+            }
         }
 
-        handle("/foo", EmptyBodyReader()) {
-            body { TextBodyWriter("bar") }
+//        oauthAuthorization("/me") {
+//            scope("read")
+//        }
+
+        path("foo") {
+            handle {
+                body(TextBodyWriter("bar"))
+            }
         }
+
+//        handle("/foo", EmptyBodyReader()) {
+//            body { TextBodyWriter("bar") }
+//        }
     }.build().start()
 }
 

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2018 Johan Fylling
+ * Copyright (c) 2019 Johan Fylling
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,25 +22,29 @@
  * SOFTWARE.
  */
 
-package org.authlab.http.server
+package org.authlab.http
 
-interface Filter {
-    fun onRequest(request: ServerRequest<*>, context: MutableContext): FilterResult
-}
+class Path(val components: List<String>) {
+    fun startsWith(path: Path): Boolean {
+        if (path.components.size > components.size) {
+            return false
+        }
 
-@ServerMarker
-interface FilterBuilder {
-    fun build(): Filter
-}
+        val hasDifference = path.components.withIndex()
+                .any { (index, component) ->
+                    component != components[index]
+                }
 
-sealed class FilterResult
+        return !hasDifference
+    }
 
-object AllowFilterResult : FilterResult()
+    fun subPath(path: Path): Path {
+        if (!startsWith(path)) {
+            throw IllegalArgumentException("Path '$path' is not a prefix of path '$this'")
+        }
+    }
 
-object SkipFilterResult : FilterResult()
-
-class AbortFilterResult(val response: ServerResponse) : FilterResult()
-
-fun abort(init: ServerResponseBuilder.() -> Unit): AbortFilterResult {
-    return AbortFilterResult(ServerResponseBuilder(init).build())
+    override fun toString(): String {
+        return components.joinToString(separator = "/", prefix = "/")
+    }
 }

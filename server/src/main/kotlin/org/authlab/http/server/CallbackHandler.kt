@@ -26,48 +26,75 @@ package org.authlab.http.server
 
 import org.authlab.http.bodies.Body
 import org.authlab.http.bodies.BodyReader
-import org.authlab.http.bodies.DelayedBody
+import org.authlab.http.bodies.EmptyBody
+import org.authlab.http.bodies.EmptyBodyReader
 
 typealias HandlerCallback<B> = (request: ServerRequest<B>) -> ServerResponse
 
-class CallbackHandler<B : Body>(private val callback: HandlerCallback<B>) : Handler<B> {
+class CallbackHandler<B : Body>(private val bodyReader: BodyReader<B>,
+                                private val callback: HandlerCallback<B>) : Handler<B> {
+    override fun getBodyReader(): BodyReader<B> {
+        return bodyReader
+    }
+
     override fun onRequest(request: ServerRequest<B>): ServerResponse {
         return callback(request)
     }
 }
 
-fun <B : Body> ServerBuilder.handle(entryPoint: String,
-                                    bodyReader: BodyReader<B>,
-                                    onRequest: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
-    handle(entryPoint, bodyReader, CallbackHandler { request ->
+//fun <B : Body> ServerBuilder.handle(entryPoint: String,
+//                                    bodyReader: BodyReader<B>,
+//                                    onRequest: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
+//    handle(entryPoint, bodyReader, CallbackHandler { request ->
+//        ServerResponseBuilder {
+//            onRequest(request)
+//        }.build()
+//    })
+//}
+
+//fun ServerBuilder.handle(entryPoint: String,
+//                         onRequest: ServerResponseBuilder.(ServerRequest<DelayedBody>) -> Unit) {
+//    handle(entryPoint, CallbackHandler { request ->
+//        ServerResponseBuilder {
+//            onRequest(request)
+//        }.build()
+//    })
+//}
+
+//fun <B : Body> ServerBuilder.default(bodyReader: BodyReader<B>,
+//                                     onRequest: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
+//    default(bodyReader, CallbackHandler { request ->
+//        ServerResponseBuilder {
+//            onRequest(request)
+//        }.build()
+//    })
+//}
+
+//fun ServerBuilder.default(onRequest: ServerResponseBuilder.(ServerRequest<DelayedBody>) -> Unit) {
+//    default(CallbackHandler { request ->
+//        ServerResponseBuilder {
+//            onRequest(request)
+//        }.build()
+//    })
+//}
+
+//fun <B : Body> EntryPointBuilder.handle(bodyReader: BodyReader<B>, onRequest: HandlerCallback<B>) {
+//    handle(bodyReader, CallbackHandler(onRequest))
+//}
+
+//fun EntryPointBuilder.handle(onRequest: HandlerCallback<EmptyBody>) {
+//    handle(EmptyBodyReader, CallbackHandler(onRequest))
+//}
+
+fun <B : Body> EntryPointBuilder.handle(bodyReader: BodyReader<B>,
+                                        onRequest: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
+    handle(CallbackHandler(bodyReader) { request ->
         ServerResponseBuilder {
             onRequest(request)
         }.build()
     })
 }
 
-fun ServerBuilder.handle(entryPoint: String,
-                         onRequest: ServerResponseBuilder.(ServerRequest<DelayedBody>) -> Unit) {
-    handle(entryPoint, CallbackHandler { request ->
-        ServerResponseBuilder {
-            onRequest(request)
-        }.build()
-    })
-}
-
-fun <B : Body> ServerBuilder.default(bodyReader: BodyReader<B>,
-                                     onRequest: ServerResponseBuilder.(ServerRequest<B>) -> Unit) {
-    default(bodyReader, CallbackHandler { request ->
-        ServerResponseBuilder {
-            onRequest(request)
-        }.build()
-    })
-}
-
-fun ServerBuilder.default(onRequest: ServerResponseBuilder.(ServerRequest<DelayedBody>) -> Unit) {
-    default(CallbackHandler { request ->
-        ServerResponseBuilder {
-            onRequest(request)
-        }.build()
-    })
+fun EntryPointBuilder.handle(onRequest: ServerResponseBuilder.(ServerRequest<EmptyBody>) -> Unit) {
+    handle(EmptyBodyReader, onRequest)
 }

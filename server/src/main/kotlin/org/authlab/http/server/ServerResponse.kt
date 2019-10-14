@@ -61,7 +61,7 @@ class ServerResponse internal constructor(internal val internalResponse: Respons
 class ServerResponseBuilder() {
     private var _statusLine: ResponseLine = ResponseLine(200, "OK")
     private var _headers: Headers = Headers()
-    private var _bodyWriter: BodyWriter = EmptyBodyWriter()
+    private var _bodyWriter: BodyWriter = EmptyBodyWriter
 
     var allowContentHeaderOverrides = false
 

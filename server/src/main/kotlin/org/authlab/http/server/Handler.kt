@@ -25,8 +25,10 @@
 package org.authlab.http.server
 
 import org.authlab.http.bodies.Body
+import org.authlab.http.bodies.BodyReader
 
 interface Handler<B : Body> {
+    fun getBodyReader() : BodyReader<B>
     fun onRequest(request: ServerRequest<B>): ServerResponse
 }
 

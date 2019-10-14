@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2018 Johan Fylling
+ * Copyright (c) 2019 Johan Fylling
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,25 +22,22 @@
  * SOFTWARE.
  */
 
-package org.authlab.http.server
+package org.authlab.http.bodies
 
-interface Filter {
-    fun onRequest(request: ServerRequest<*>, context: MutableContext): FilterResult
-}
+import org.authlab.http.Headers
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 
-@ServerMarker
-interface FilterBuilder {
-    fun build(): Filter
-}
+fun <B : Body> convertBody(body: Body, bodyReader: BodyReader<B>): B {
+    return if (body is DelayedBody) {
+        body.read(bodyReader)
+    } else {
+        val outputStream = ByteArrayOutputStream()
 
-sealed class FilterResult
+        body.writer.write(outputStream)
+        val headers = Headers().withHeader("Content-Length", "${outputStream.size()}")
 
-object AllowFilterResult : FilterResult()
-
-object SkipFilterResult : FilterResult()
-
-class AbortFilterResult(val response: ServerResponse) : FilterResult()
-
-fun abort(init: ServerResponseBuilder.() -> Unit): AbortFilterResult {
-    return AbortFilterResult(ServerResponseBuilder(init).build())
+        bodyReader.read(ByteArrayInputStream(outputStream.toByteArray()), headers)
+                .getBody()
+    }
 }

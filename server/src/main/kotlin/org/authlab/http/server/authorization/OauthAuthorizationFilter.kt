@@ -32,6 +32,7 @@ import org.authlab.http.oauth.client.IntrospectionResponse
 import org.authlab.http.server.AbortFilterResult
 import org.authlab.http.server.AllowFilterResult
 import org.authlab.http.server.Context
+import org.authlab.http.server.EntryPointBuilder
 import org.authlab.http.server.Filter
 import org.authlab.http.server.FilterBuilder
 import org.authlab.http.server.FilterResult
@@ -225,8 +226,12 @@ class OauthAuthorizationFilterBuilder private constructor() : FilterBuilder {
     }
 }
 
-fun ServerBuilder.oauthAuthorization(entryPoint: String, init: OauthAuthorizationFilterBuilder.() -> Unit) {
-    filter(entryPoint, OauthAuthorizationFilterBuilder(init))
+//fun ServerBuilder.oauthAuthorization(entryPoint: String, init: OauthAuthorizationFilterBuilder.() -> Unit) {
+//    filter(entryPoint, OauthAuthorizationFilterBuilder(init))
+//}
+
+fun EntryPointBuilder.oauthAuthorization(init: OauthAuthorizationFilterBuilder.() -> Unit) {
+    filter(OauthAuthorizationFilterBuilder(init))
 }
 
 class OauthAuthorizationContextBuilder private constructor() {

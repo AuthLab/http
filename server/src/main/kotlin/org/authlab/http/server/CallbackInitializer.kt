@@ -39,3 +39,7 @@ fun ServerBuilder.initialize(entryPoint: String, onRequest: InitializerCallback)
 fun ServerBuilder.initialize(onRequest: InitializerCallback) {
     initialize(CallbackInitializer(onRequest))
 }
+
+fun EntryPointBuilder.initialize(onRequest: InitializerCallback) {
+    initialize(CallbackInitializer(onRequest))
+}
