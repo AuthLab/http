@@ -2,12 +2,14 @@
   <configuration default="false" name="Echo Server" type="JetRunConfigurationType" factoryName="Kotlin">
     <module name="echo_server_main" />
     <option name="VM_PARAMETERS" value="" />
-    <option name="PROGRAM_PARAMETERS" value="" />
+    <option name="PROGRAM_PARAMETERS" value="-k keystore.p12 -P rootroot -r" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
     <option name="ALTERNATIVE_JRE_PATH" />
     <option name="PASS_PARENT_ENVS" value="true" />
-    <option name="MAIN_CLASS_NAME" value="org.authlab.App" />
+    <option name="MAIN_CLASS_NAME" value="org.authlab.EchoServerApp" />
     <option name="WORKING_DIRECTORY" value="file://echo_server/src/main/dist" />
-    <method />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
   </configuration>
 </component>

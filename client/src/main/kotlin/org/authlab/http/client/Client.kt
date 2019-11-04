@@ -213,7 +213,7 @@ class Client(val location: Location,
         val body = bodyReader.read(socket.inputStream, response.headers)
                 .getBody()
 
-        return ClientResponse(response, body)
+        return ClientResponse(response.withBody(body), body)
     }
 
     private fun execute(request: Request, bodyWriter: BodyWriter): Response {
@@ -357,7 +357,7 @@ fun buildClient(host: String, init: ClientBuilder.() -> Unit = {}) = ClientBuild
 annotation class ClientMarker
 
 @ClientMarker
-class ClientBuilder(private val location: String) {
+class ClientBuilder(private val location: Location) {
     var keepAlive: Boolean = false
     var reconnect: Boolean = true
     var cookieManager: CookieManager? = null
@@ -366,12 +366,15 @@ class ClientBuilder(private val location: String) {
     var sslContext: SSLContext = SSLContext.getDefault()
     var authenticationManager: AuthenticationManager? = null
 
-    constructor(host: String, init: ClientBuilder.() -> Unit = {}) : this(host) {
+    constructor(location: Location, init: ClientBuilder.() -> Unit = {}) : this(location) {
+        init()
+    }
+
+    constructor(host: String, init: ClientBuilder.() -> Unit = {}) : this(Location.fromString(host)) {
         init()
     }
 
     fun build(): Client {
-        val location = Location.fromString(this.location)
         val proxy = this.proxy?.let { Location.fromString(it).endpoint }
 
         val socketFactory = when {

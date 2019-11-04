@@ -30,7 +30,7 @@ open class ResponseLine(val statusCode: Int, val reason: String, val version: St
             val inputParts = input.split(" ", limit = 3)
 
             if (inputParts.size != 3) {
-                throw IllegalArgumentException("Request line input string must have three parts")
+                throw IllegalArgumentException("Response line input string must have three parts")
             }
 
             return DeserializedResponseLine(input, Integer.parseInt(inputParts[1]), inputParts[2], inputParts[0])

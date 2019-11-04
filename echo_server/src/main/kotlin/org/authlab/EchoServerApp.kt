@@ -22,10 +22,12 @@
  * SOFTWARE.
  */
 
-@file:JvmName("App")
+@file:JvmName("EchoServerApp")
 
 package org.authlab
 
+import org.authlab.crypto.SimpleKeyManager
+import org.authlab.crypto.TrustAllTrustManager
 import org.authlab.http.echo.EchoServerBuilder
 import java.io.File
 import java.net.InetAddress
@@ -33,6 +35,7 @@ import java.security.KeyStore
 import java.security.SecureRandom
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
+import javax.net.ssl.X509KeyManager
 
 fun main(args: Array<String>) {
     var inetAddress = InetAddress.getByName("0.0.0.0")
@@ -41,6 +44,7 @@ fun main(args: Array<String>) {
     var threadPool = 100
     var keystorePath: String? = null
     var keystorePassword: String? = null
+    var requireClientCertificate = false
 
     var action: ((String) -> Unit)? = null
 
@@ -95,6 +99,8 @@ fun main(args: Array<String>) {
                 action = { value ->
                     keystorePassword = value
                 }
+            } else if (option == "-r" || option == "--require-client-certificate") {
+                requireClientCertificate = true
             } else {
                 throw IllegalArgumentException("Unknown option '$option'")
             }
@@ -111,12 +117,16 @@ fun main(args: Array<String>) {
         sslContext = SSLContext.getInstance("TLS")
 
         val keyStore = KeyStore.getInstance("PKCS12")
-        keyStore.load(File(keystorePath).inputStream(), keystorePassword?.toCharArray())
+        keyStore.load(File(keystorePath!!).inputStream(), keystorePassword?.toCharArray())
 
         val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
         keyManagerFactory.init(keyStore, keystorePassword?.toCharArray() ?: charArrayOf())
 
-        sslContext.init(keyManagerFactory.keyManagers, null, SecureRandom())
+        sslContext.init(keyManagerFactory.keyManagers.asSequence()
+                .mapNotNull { it as? X509KeyManager }
+                .map { SimpleKeyManager(it) }
+                .toList().toTypedArray(),
+                arrayOf(TrustAllTrustManager()), SecureRandom())
     }
 
     EchoServerBuilder {
@@ -130,6 +140,7 @@ fun main(args: Array<String>) {
             if (sslContext != null) {
                 this.secure = true
                 this.sslContext = sslContext
+                this.requireClientCertificate = requireClientCertificate
             }
         }
     }.build().start()
@@ -139,12 +150,13 @@ internal fun printUsage() {
     println("""
         |proxy [options...]
         |Options:
-        |  -b, --backlog           Maximum queue length for incoming connections.
-        |  -h, --help              Prints this help message.
-        |  -i, --interface         The interface (or address) to listen on.
-        |  -t, --thread-pool       The size of the thread pool for managing active connections.
-        |  -p, --port              The port to listen on.
-        |  -k, --keystore          The keystore to use for TLS
-        |  -P, --keystore-password The keystore password
+        |  -b, --backlog                    Maximum queue length for incoming connections.
+        |  -h, --help                       Prints this help message.
+        |  -i, --interface                  The interface (or address) to listen on.
+        |  -t, --thread-pool                The size of the thread pool for managing active connections.
+        |  -p, --port                       The port to listen on.
+        |  -k, --keystore                   The keystore to use for TLS
+        |  -P, --keystore-password          The keystore password
+        |  -r, --require-client-certificate Require connecting clients to provide a certificate
     """.trimMargin())
 }

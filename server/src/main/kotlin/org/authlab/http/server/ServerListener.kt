@@ -30,10 +30,12 @@ import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
 import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLServerSocket
 
 class ServerListener(val inetAddress: InetAddress, val port: Int,
                      val secure: Boolean, val backlog: Int,
                      val sslContext: SSLContext = SSLContext.getDefault(),
+                     val requireClientCertificate: Boolean = false,
                      var onAccept: (Socket, ServerListener) -> Unit = { _, _ ->}) : Runnable, Closeable {
     companion object {
         private val _logger = loggerFor<ServerListener>()
@@ -51,6 +53,7 @@ class ServerListener(val inetAddress: InetAddress, val port: Int,
 
         _socket = if (secure) {
             sslContext.serverSocketFactory.createServerSocket(port, backlog, inetAddress)
+                    .also { (it as? SSLServerSocket)?.needClientAuth = requireClientCertificate }
         } else {
             ServerSocket(port, backlog, inetAddress)
         }
@@ -100,9 +103,11 @@ class ServerListenerBuilder() {
     var secure: Boolean = false
     var backlog: Int = 50
     var sslContext: SSLContext = SSLContext.getDefault()
+    var requireClientCertificate: Boolean = false
 //    var blocking: Boolean = true
 
     fun build(): ServerListener {
-        return ServerListener(InetAddress.getByName(host), port, secure, backlog, sslContext)
+        return ServerListener(InetAddress.getByName(host), port, secure, backlog, sslContext,
+                requireClientCertificate)
     }
 }

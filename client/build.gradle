@@ -4,6 +4,9 @@ version '1.0-SNAPSHOT'
 apply plugin: 'groovy'
 apply plugin: 'java'
 apply plugin: 'kotlin'
+apply plugin: 'application'
+
+mainClassName = "org.authlab.http.ClientApp"
 
 sourceCompatibility = ext.java_version
 
@@ -29,4 +32,13 @@ compileKotlin {
 
 compileTestKotlin {
     kotlinOptions.jvmTarget = "$java_version"
+}
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'Client',
+                'Implementation-Version': version,
+                'Main-Class': 'org.authlab.http.ClientApp',
+                'Class-Path': configurations.compile.collect { it.getName() }.join(' ')
+    }
 }

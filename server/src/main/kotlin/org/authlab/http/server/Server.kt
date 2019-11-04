@@ -190,7 +190,7 @@ class Server(private val listeners: List<ServerListener>,
 
             inputStream.unread(byte)
         } catch (e: IOException) {
-            _logger.trace("Exception waiting for request", e)
+            _logger.debug("Exception waiting for request", e)
             return false
         }
 

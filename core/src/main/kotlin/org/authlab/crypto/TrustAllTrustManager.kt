@@ -38,12 +38,12 @@ class TrustAllTrustManager : X509TrustManager {
     }
 
     override fun checkClientTrusted(chain: Array<out X509Certificate>, authType: String) {
-        _logger.debug("Checking client trust for $authType")
-        _logger.debug("Certificate chain: {}", chain)
+        _logger.debug("Checking client trust for auth-type '{}' and certificate chain {}",
+                authType, chain)
     }
 
     override fun checkServerTrusted(chain: Array<out X509Certificate>, authType: String) {
-        _logger.debug("Checking server trust for $authType")
-        _logger.debug("Certificate chain: {}", chain)
+        _logger.debug("Checking server trust for auth-type '{}' and certificate chain {}",
+                authType, chain)
     }
 }
