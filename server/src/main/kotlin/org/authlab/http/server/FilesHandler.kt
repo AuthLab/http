@@ -29,6 +29,7 @@ import org.authlab.http.bodies.EmptyBodyReader
 import org.authlab.http.bodies.EmptyBodyWriter
 import org.authlab.http.bodies.StreamBodyWriter
 import org.authlab.util.loggerFor
+import java.io.InputStream
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
@@ -38,7 +39,13 @@ private val logger = loggerFor<FilesHandler>()
 
 class FilesHandler(private val fileRoot: String) : Handler<EmptyBody> {
     override fun onRequest(request: ServerRequest<EmptyBody>): ServerResponse {
-        val path = request.requestLine.location.path
+        val fileRootPath = Paths.get(fileRoot)
+
+        if (Files.isRegularFile(fileRootPath)) {
+            return createResponse(Files.newInputStream(fileRootPath))
+        }
+
+        val path = request.requestLine.location.normalizedPath
 
         val filePath = URI.create(path).normalize().toString().let {
             if (it == "/") {
@@ -62,6 +69,10 @@ class FilesHandler(private val fileRoot: String) : Handler<EmptyBody> {
             ClassLoader.getSystemResourceAsStream(completeFilePath)
         }
 
+        return createResponse(inputStream)
+    }
+
+    private fun createResponse(inputStream: InputStream?): ServerResponse {
         val response = if (inputStream != null) {
             ServerResponseBuilder {
                 status(200 to "OK")
