@@ -10,6 +10,7 @@ apply plugin: 'application'
 mainClassName = "org.authlab.http.ServerApp"
 
 sourceCompatibility = ext.java_version
+targetCompatibility = ext.java_version
 
 test {
     useJUnitPlatform()

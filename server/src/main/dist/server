@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+DIR="$(dirname "$(greadlink -f "$0")")"
+java -Dlog4j.configurationFile="$DIR/log4j2.xml" -jar "$DIR/lib/server-1.0-SNAPSHOT.jar" "$@" 2>/dev/null

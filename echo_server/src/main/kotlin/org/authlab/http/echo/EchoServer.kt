@@ -39,8 +39,11 @@ class EchoServerBuilder private constructor() : ServerBuilder() {
         logger.info("initializing default settings")
 
         default(TextBodyReader()) { request ->
+            val har = request.toHar()
+            logger.debug("Request: {}", har)
+
             status { 200 to "OK" }
-            body { JsonBodyWriter(request.toHar(), pretty = true) }
+            body { JsonBodyWriter(har, pretty = true) }
         }
     }
 

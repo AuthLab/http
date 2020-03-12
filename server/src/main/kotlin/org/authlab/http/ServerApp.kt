@@ -157,7 +157,7 @@ fun main(args: Array<String>) {
 
 internal fun printUsage() {
     println("""
-        |proxy [options...] <folder|file>
+        |server [options...] <folder|file>
         |Options:
         |  -b, --backlog                    Maximum queue length for incoming connections.
         |  -h, --help                       Prints this help message.
