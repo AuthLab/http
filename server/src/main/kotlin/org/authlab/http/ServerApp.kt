@@ -36,6 +36,7 @@ import java.security.KeyStore
 import java.security.SecureRandom
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509KeyManager
 
 fun main(args: Array<String>) {
@@ -44,19 +45,20 @@ fun main(args: Array<String>) {
         return
     }
 
-    val fileRoot = args.last()
+    var fileRoot = "."
     var inetAddress = InetAddress.getByName("0.0.0.0")
     var port = 8084
     var backlog = 50
     var threadPool = 100
     var keystorePath: String? = null
     var keystorePassword: String? = null
+    var truststorePath: String? = null
     var requireClientCertificate = false
 
     var action: ((String) -> Unit)? = null
 
     try {
-        for (option in args.dropLast(1)) {
+        for ((index, option) in args.withIndex()) {
             if (action != null) {
                 action(option)
                 action = null
@@ -106,11 +108,22 @@ fun main(args: Array<String>) {
                 action = { value ->
                     keystorePassword = value
                 }
-            } else if (option == "-r" || option == "--require-client-certificate") {
+            } else if (option == "-c" || option == "--require-client-certificate") {
                 requireClientCertificate = true
+            } else if (option == "-C" || option == "--client-certificate-trust") {
+                action = { value ->
+                    truststorePath = value
+                }
+            } else if (index == args.size - 1) {
+                fileRoot = option
             } else {
                 throw IllegalArgumentException("Unknown option '$option'")
             }
+        }
+
+        if (action != null) {
+            printUsage()
+            return
         }
     } catch (e: Throwable) {
         println(e.message)
@@ -129,11 +142,23 @@ fun main(args: Array<String>) {
         val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm())
         keyManagerFactory.init(keyStore, keystorePassword?.toCharArray() ?: charArrayOf())
 
+        val trustStoreManager = if (truststorePath != null) {
+            val trustStore = KeyStore.getInstance("PKCS12")
+            trustStore.load(File(keystorePath!!).inputStream(), keystorePassword?.toCharArray())
+
+            val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+            trustManagerFactory.init(trustStore)
+
+            trustManagerFactory.trustManagers
+        } else {
+            arrayOf(TrustAllTrustManager())
+        }
+
         sslContext.init(keyManagerFactory.keyManagers.asSequence()
                 .mapNotNull { it as? X509KeyManager }
                 .map { SimpleKeyManager(it) }
                 .toList().toTypedArray(),
-                arrayOf(TrustAllTrustManager()), SecureRandom())
+                trustStoreManager, SecureRandom())
     }
 
     ServerBuilder {
@@ -157,7 +182,7 @@ fun main(args: Array<String>) {
 
 internal fun printUsage() {
     println("""
-        |server [options...] <folder|file>
+        |server [options...] [folder|file]
         |Options:
         |  -b, --backlog                    Maximum queue length for incoming connections.
         |  -h, --help                       Prints this help message.
